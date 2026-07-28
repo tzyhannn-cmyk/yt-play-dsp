@@ -167,6 +167,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Fungsi Pembersih URL YouTube agar NewPipe tidak error ParsingException
+    private fun sanitizeYouTubeUrl(rawUrl: String): String {
+        return try {
+            val uri = Uri.parse(rawUrl)
+            val videoId = uri.getQueryParameter("v")
+            if (!videoId.isNullOrEmpty()) {
+                "https://www.youtube.com/watch?v=$videoId"
+            } else if (rawUrl.contains("/shorts/")) {
+                val shortsId = rawUrl.substringAfter("/shorts/").substringBefore("?").substringBefore("&")
+                "https://www.youtube.com/shorts/$shortsId"
+            } else {
+                rawUrl
+            }
+        } catch (e: Exception) {
+            rawUrl
+        }
+    }
+
     // Injeksi skrip ke Web YouTube untuk Mute Suara Asli & Kirim URL ke DLMS
     private fun injectYouTubeAutoHook() {
         val jsHook = """
@@ -247,18 +265,22 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun autoExtractYouTubeAudio(url: String) {
+            val cleanUrl = sanitizeYouTubeUrl(url)
+            
             // Hindari ekstraksi berulang untuk URL lagu yang sama
-            if (url == lastExtractedUrl) return
-            lastExtractedUrl = url
+            if (cleanUrl == lastExtractedUrl || cleanUrl.isBlank()) return
+            lastExtractedUrl = cleanUrl
 
-            extractYouTubeAudio(url)
+            extractYouTubeAudio(cleanUrl)
         }
 
         @JavascriptInterface
         fun extractYouTubeAudio(url: String) {
+            val cleanUrl = sanitizeYouTubeUrl(url)
+            
             Thread {
                 try {
-                    val extractor = ServiceList.YouTube.getStreamExtractor(url)
+                    val extractor = ServiceList.YouTube.getStreamExtractor(cleanUrl)
                     extractor.fetchPage()
 
                     val audioStreams = extractor.audioStreams
