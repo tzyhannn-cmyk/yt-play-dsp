@@ -1,13 +1,21 @@
 package com.dsp220.pro
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
-import android.webkit.WebSettings // PEMBARUAN: Import library pengaturan web
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.downloader.Downloader
@@ -18,38 +26,137 @@ import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private lateinit var dspWebView: WebView
+    private lateinit var youtubeWebView: WebView
+
+    // Callback untuk menangani hasil pilihan file dari File Manager
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    // Launcher untuk membuka File Manager HP
+    private val filePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (filePathCallback != null) {
+            val intent = result.data
+            var results: Array<Uri>? = null
+            if (result.resultCode == Activity.RESULT_OK && intent != null) {
+                val dataString = intent.dataString
+                val clipData = intent.clipData
+                if (clipData != null) {
+                    results = Array(clipData.itemCount) { i -> clipData.getItemAt(i).uri }
+                } else if (dataString != null) {
+                    results = arrayOf(Uri.parse(dataString))
+                }
+            }
+            filePathCallback?.onReceiveValue(results)
+            filePathCallback = null
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         initNewPipeExtractor()
+        setContentView(R.layout.activity_main)
 
-        webView = WebView(this)
-        setContentView(webView)
+        val container = findViewById<FrameLayout>(R.id.fragment_container)
+        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
 
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            mediaPlaybackRequiresUserGesture = false 
-            
-            allowFileAccess = true
-            allowContentAccess = true
-            @Suppress("DEPRECATION")
-            allowFileAccessFromFileURLs = true
-            @Suppress("DEPRECATION")
-            allowUniversalAccessFromFileURLs = true
-            
-            // PERBAIKAN UTAMA: Mengizinkan HTML lokal memproses & menyuarakan audio dari HTTPS internet
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        // Setup WebView DSP Control
+        dspWebView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            webViewClient = WebViewClient()
+
+            // WEBCHROMECLIENT DENGAN PENANGANAN FILE PICKER
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowFileChooser(
+                    webView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    this@MainActivity.filePathCallback?.onReceiveValue(null)
+                    this@MainActivity.filePathCallback = filePathCallback
+
+                    val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                        type = "*/*"
+                    }
+
+                    try {
+                        filePickerLauncher.launch(intent)
+                    } catch (e: Exception) {
+                        this@MainActivity.filePathCallback = null
+                        return false
+                    }
+                    return true
+                }
+            }
+
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                mediaPlaybackRequiresUserGesture = false
+
+                // SETTINGAN IZIN AKSES FILE LOKAL
+                allowFileAccess = true
+                allowContentAccess = true
+                @Suppress("DEPRECATION")
+                allowFileAccessFromFileURLs = true
+                @Suppress("DEPRECATION")
+                allowUniversalAccessFromFileURLs = true
+
+                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
+
+            addJavascriptInterface(AndroidBridge(), "AndroidBridge")
+            loadUrl("file:///android_asset/index.html")
         }
 
-        webView.webViewClient = WebViewClient()
-        webView.webChromeClient = WebChromeClient() 
-        
-        webView.addJavascriptInterface(AndroidBridge(), "AndroidBridge")
-        webView.loadUrl("file:///android_asset/index.html")
+        // Setup WebView YouTube
+        youtubeWebView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            webViewClient = WebViewClient()
+            webChromeClient = WebChromeClient()
+
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                mediaPlaybackRequiresUserGesture = false
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
+
+            loadUrl("https://m.youtube.com")
+        }
+
+        container.addView(dspWebView)
+        container.addView(youtubeWebView)
+
+        dspWebView.visibility = View.VISIBLE
+        youtubeWebView.visibility = View.GONE
+
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_dsp -> {
+                    dspWebView.visibility = View.VISIBLE
+                    youtubeWebView.visibility = View.GONE
+                    true
+                }
+                R.id.navigation_youtube -> {
+                    youtubeWebView.visibility = View.VISIBLE
+                    dspWebView.visibility = View.GONE
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     private fun initNewPipeExtractor() {
@@ -57,10 +164,10 @@ class MainActivity : AppCompatActivity() {
             NewPipe.init(object : Downloader() {
                 override fun execute(request: Request): Response {
                     val connection = URL(request.url()).openConnection() as HttpURLConnection
-                    
+
                     val method = request.httpMethod() ?: "GET"
                     connection.requestMethod = method
-                    
+
                     request.headers().forEach { (key, values) ->
                         if (!key.equals("Accept-Encoding", ignoreCase = true)) {
                             if (key.equals("Cookie", ignoreCase = true)) {
@@ -72,28 +179,28 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    
+
                     if (connection.getRequestProperty("User-Agent") == null) {
                         connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     }
-                    
+
                     if (method == "POST" && request.dataToSend() != null) {
                         connection.doOutput = true
                         connection.outputStream.use { os ->
                             os.write(request.dataToSend())
                         }
                     }
-                    
+
                     val responseCodeValue = connection.responseCode
                     val responseMessage = connection.responseMessage
                     val responseHeaders = connection.headerFields
-                    
+
                     val responseBody = try {
                         connection.inputStream.bufferedReader().use { it.readText() }
                     } catch (e: Exception) {
                         connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
                     }
-                    
+
                     return Response(responseCodeValue, responseMessage, responseHeaders, responseBody, request.url())
                 }
             })
@@ -109,7 +216,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val extractor = ServiceList.YouTube.getStreamExtractor(url)
                     extractor.fetchPage()
-                    
+
                     val audioStreams = extractor.audioStreams
                     val videoStreams = extractor.videoStreams
 
@@ -121,20 +228,30 @@ class MainActivity : AppCompatActivity() {
 
                     if (playableUrl != null) {
                         runOnUiThread {
-                            webView.evaluateJavascript("javascript:onAudioExtracted('$playableUrl');", null)
+                            dspWebView.evaluateJavascript("javascript:onAudioExtracted('$playableUrl');", null)
                         }
                     } else {
                         runOnUiThread {
-                            webView.evaluateJavascript("javascript:onExtractionFailed('Format audio maupun video tidak dapat ditemukan.');", null)
+                            dspWebView.evaluateJavascript("javascript:onExtractionFailed('Format audio maupun video tidak dapat ditemukan.');", null)
                         }
                     }
                 } catch (e: Exception) {
                     runOnUiThread {
-                        val errorClean = e.toString().replace("'", "\\'") 
-                        webView.evaluateJavascript("javascript:onExtractionFailed('$errorClean');", null)
+                        val errorClean = e.toString().replace("'", "\\'")
+                        dspWebView.evaluateJavascript("javascript:onExtractionFailed('$errorClean');", null)
                     }
                 }
             }.start()
+        }
+    }
+
+    override fun onBackPressed() {
+        if (youtubeWebView.visibility == View.VISIBLE && youtubeWebView.canGoBack()) {
+            youtubeWebView.goBack()
+        } else if (dspWebView.visibility == View.VISIBLE && dspWebView.canGoBack()) {
+            dspWebView.goBack()
+        } else {
+            super.onBackPressed()
         }
     }
 }
