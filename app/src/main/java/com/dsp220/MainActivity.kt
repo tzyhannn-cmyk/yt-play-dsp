@@ -29,10 +29,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var dspWebView: WebView
     private lateinit var youtubeWebView: WebView
 
-    // Callback untuk menangani hasil pilihan file dari File Manager
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var lastExtractedUrl: String = ""
 
-    // Launcher untuk membuka File Manager HP
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -63,7 +62,7 @@ class MainActivity : AppCompatActivity() {
         val container = findViewById<FrameLayout>(R.id.fragment_container)
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
 
-        // Setup WebView DSP Control
+        // 1. SETUP WEBVIEW DSP CONTROL
         dspWebView = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -71,7 +70,6 @@ class MainActivity : AppCompatActivity() {
             )
             webViewClient = WebViewClient()
 
-            // WEBCHROMECLIENT DENGAN PENANGANAN FILE PICKER
             webChromeClient = object : WebChromeClient() {
                 override fun onShowFileChooser(
                     webView: WebView?,
@@ -99,15 +97,12 @@ class MainActivity : AppCompatActivity() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 mediaPlaybackRequiresUserGesture = false
-
-                // SETTINGAN IZIN AKSES FILE LOKAL
                 allowFileAccess = true
                 allowContentAccess = true
                 @Suppress("DEPRECATION")
                 allowFileAccessFromFileURLs = true
                 @Suppress("DEPRECATION")
                 allowUniversalAccessFromFileURLs = true
-
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
 
@@ -115,13 +110,25 @@ class MainActivity : AppCompatActivity() {
             loadUrl("file:///android_asset/index.html")
         }
 
-        // Setup WebView YouTube
+        // 2. SETUP WEBVIEW YOUTUBE (DENGAN AUTO INTERCEPTOR)
         youtubeWebView = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            webViewClient = WebViewClient()
+
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    injectYouTubeAutoHook()
+                }
+
+                override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                    super.doUpdateVisitedHistory(view, url, isReload)
+                    injectYouTubeAutoHook()
+                }
+            }
+
             webChromeClient = WebChromeClient()
 
             settings.apply {
@@ -133,6 +140,7 @@ class MainActivity : AppCompatActivity() {
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
 
+            addJavascriptInterface(AndroidBridge(), "AndroidBridge")
             loadUrl("https://m.youtube.com")
         }
 
@@ -157,6 +165,32 @@ class MainActivity : AppCompatActivity() {
                 else -> false
             }
         }
+    }
+
+    // Injeksi skrip ke Web YouTube untuk Mute Suara Asli & Kirim URL ke DLMS
+    private fun injectYouTubeAutoHook() {
+        val jsHook = """
+            (function() {
+                if (window.ytDspInjected) return;
+                window.ytDspInjected = true;
+                
+                function checkAndHook() {
+                    var currentUrl = window.location.href;
+                    if (currentUrl.includes('/watch') || currentUrl.includes('/shorts/')) {
+                        var video = document.querySelector('video');
+                        if (video) {
+                            video.muted = true; // Mute video YouTube bawaan
+                        }
+                        if (window.AndroidBridge && window.AndroidBridge.autoExtractYouTubeAudio) {
+                            window.AndroidBridge.autoExtractYouTubeAudio(currentUrl);
+                        }
+                    }
+                }
+                setInterval(checkAndHook, 1500);
+            })();
+        """.trimIndent()
+
+        youtubeWebView.evaluateJavascript("javascript:$jsHook", null)
     }
 
     private fun initNewPipeExtractor() {
@@ -210,6 +244,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class AndroidBridge {
+
+        @JavascriptInterface
+        fun autoExtractYouTubeAudio(url: String) {
+            // Hindari ekstraksi berulang untuk URL lagu yang sama
+            if (url == lastExtractedUrl) return
+            lastExtractedUrl = url
+
+            extractYouTubeAudio(url)
+        }
+
         @JavascriptInterface
         fun extractYouTubeAudio(url: String) {
             Thread {
@@ -232,7 +276,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     } else {
                         runOnUiThread {
-                            dspWebView.evaluateJavascript("javascript:onExtractionFailed('Format audio maupun video tidak dapat ditemukan.');", null)
+                            dspWebView.evaluateJavascript("javascript:onExtractionFailed('Format audio tidak ditemukan.');", null)
                         }
                     }
                 } catch (e: Exception) {
