@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application' version '8.7.0'
+    id 'org.jetbrains.kotlin.android' version '2.0.0'
+}
+
+android {
+    namespace 'com.dsp220.pro'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.dsp220.pro"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        // 1. Aktifkan Desugaring untuk mendukung API Java modern
+        coreLibraryDesugaringEnabled true
+        
+        // 2. Naikkan versi Java ke VERSION_17 (Sesuai standar AGP 8.7.0)
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        // 3. Samakan jvmTarget ke 17
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+
+    // ExoPlayer untuk Pemutaran Latar Belakang
+    implementation 'androidx.media3:media3-exoplayer:1.2.1'
+    implementation 'androidx.media3:media3-ui:1.2.1'
+
+    // Desugaring & NewPipe Extractor
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.1'
+}
