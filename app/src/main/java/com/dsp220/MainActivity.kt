@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
             loadUrl("file:///android_asset/index.html")
         }
 
-        // 2. SETUP WEBVIEW YOUTUBE (DENGAN AUTO INTERCEPTOR & AD BLOCKER)
+        // 2. SETUP WEBVIEW YOUTUBE (DENGAN AUTO INTERCEPTOR & AUTO AD-SKIP)
         youtubeWebView = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -185,53 +185,67 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Injeksi skrip ke Web YouTube: Mute Suara, Kirim URL ke DLMS, & Ad Blocker Auto Skip
+    // Injeksi skrip stabil: Memisahkan ekstraksi audio dan skip iklan dengan aman
     private fun injectYouTubeAutoHook() {
         val jsHook = """
             (function() {
                 if (window.ytDspInjected) return;
                 window.ytDspInjected = true;
                 
-                // 1. Sembunyikan banner & elemen iklan bawaan via CSS
-                var style = document.createElement('style');
-                style.type = 'text/css';
-                style.innerHTML = `
-                    .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
-                    ytm-promoted-sparkles-web-renderer, ytm-compact-promoted-item-renderer,
-                    ad-slot-renderer, .ad-showing .ytp-ad-text, ytm-companion-ad-renderer,
-                    .ytp-ad-skip-button-slot, ytm-promoted-video-renderer { 
-                        display: none !important; 
-                    }
-                `;
-                document.head.appendChild(style);
-
-                // 2. Loop pemeriksaan berkala
-                function checkAndHook() {
-                    // --- Fitur Ad Blocker & Auto Skip Video Iklan ---
-                    var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-skip-ad-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot');
-                    if (skipBtn) {
-                        skipBtn.click();
-                    }
-
-                    var video = document.querySelector('video');
-                    var isAdShowing = document.querySelector('.ad-interrupting, .ad-showing');
-                    if (isAdShowing && video && !isNaN(video.duration)) {
-                        video.currentTime = video.duration; // Lompat langsung ke akhir video iklan
-                    }
-
-                    // --- Fitur Hook YouTube ke DLMS ---
-                    var currentUrl = window.location.href;
-                    if (currentUrl.includes('/watch') || currentUrl.includes('/shorts/')) {
-                        if (video) {
-                            video.muted = true; // Mute video YouTube bawaan
+                // 1. Sembunyikan Banner, Promo, & Popup Iklan Mobile via CSS
+                try {
+                    var style = document.createElement('style');
+                    style.type = 'text/css';
+                    style.innerHTML = `
+                        ytm-promoted-sparkles-web-renderer, 
+                        ytm-companion-ad-renderer, 
+                        ad-slot-renderer,
+                        ytm-promoted-video-renderer,
+                        .ad-showing,
+                        .ad-container,
+                        .ytp-ad-overlay-container { 
+                            display: none !important; 
                         }
-                        if (window.AndroidBridge && window.AndroidBridge.autoExtractYouTubeAudio) {
-                            window.AndroidBridge.autoExtractYouTubeAudio(currentUrl);
-                        }
-                    }
-                }
+                    `;
+                    document.head.appendChild(style);
+                } catch(e){}
 
-                setInterval(checkAndHook, 800);
+                // 2. LOOP KHUSUS NEWPIPE EXTRACTOR (TIDAK TERGANGGU AD BLOCKER)
+                setInterval(function() {
+                    try {
+                        var currentUrl = window.location.href;
+                        if (currentUrl.includes('/watch') || currentUrl.includes('/shorts/')) {
+                            var video = document.querySelector('video');
+                            if (video) {
+                                video.muted = true; // Mute video YouTube bawaan agar suara tidak tumpuk
+                            }
+                            if (window.AndroidBridge && window.AndroidBridge.autoExtractYouTubeAudio) {
+                                window.AndroidBridge.autoExtractYouTubeAudio(currentUrl);
+                            }
+                        }
+                    } catch(e) {}
+                }, 1000);
+
+                // 3. LOOP KHUSUS AUTO-SKIP IKLAN VIDEO (CEPAT 300ms)
+                setInterval(function() {
+                    try {
+                        // Cek apakah ada indikator iklan sedang diputar
+                        var isAd = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytm-ad-player-overlay');
+                        var video = document.querySelector('video');
+
+                        // Jika iklan muncul, paksa loncat ke akhir durasi video iklan
+                        if (isAd && video && !isNaN(video.duration)) {
+                            video.currentTime = video.duration;
+                        }
+
+                        // Klik tombol skip jika tersedia
+                        var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-skip-ad-button, .ytp-ad-skip-button-modern, .ytm-ad-skip-button, .ytp-ad-skip-button-slot');
+                        if (skipBtn) {
+                            skipBtn.click();
+                        }
+                    } catch(e) {}
+                }, 300);
+
             })();
         """.trimIndent()
 
