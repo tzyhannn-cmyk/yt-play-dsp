@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
             loadUrl("file:///android_asset/index.html")
         }
 
-        // 2. SETUP WEBVIEW YOUTUBE (DENGAN AUTO INTERCEPTOR)
+        // 2. SETUP WEBVIEW YOUTUBE (DENGAN AUTO INTERCEPTOR & AD BLOCKER)
         youtubeWebView = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -185,17 +185,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Injeksi skrip ke Web YouTube untuk Mute Suara Asli & Kirim URL ke DLMS
+    // Injeksi skrip ke Web YouTube: Mute Suara, Kirim URL ke DLMS, & Ad Blocker Auto Skip
     private fun injectYouTubeAutoHook() {
         val jsHook = """
             (function() {
                 if (window.ytDspInjected) return;
                 window.ytDspInjected = true;
                 
+                // 1. Sembunyikan banner & elemen iklan bawaan via CSS
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.innerHTML = `
+                    .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
+                    ytm-promoted-sparkles-web-renderer, ytm-compact-promoted-item-renderer,
+                    ad-slot-renderer, .ad-showing .ytp-ad-text, ytm-companion-ad-renderer,
+                    .ytp-ad-skip-button-slot, ytm-promoted-video-renderer { 
+                        display: none !important; 
+                    }
+                `;
+                document.head.appendChild(style);
+
+                // 2. Loop pemeriksaan berkala
                 function checkAndHook() {
+                    // --- Fitur Ad Blocker & Auto Skip Video Iklan ---
+                    var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-skip-ad-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot');
+                    if (skipBtn) {
+                        skipBtn.click();
+                    }
+
+                    var video = document.querySelector('video');
+                    var isAdShowing = document.querySelector('.ad-interrupting, .ad-showing');
+                    if (isAdShowing && video && !isNaN(video.duration)) {
+                        video.currentTime = video.duration; // Lompat langsung ke akhir video iklan
+                    }
+
+                    // --- Fitur Hook YouTube ke DLMS ---
                     var currentUrl = window.location.href;
                     if (currentUrl.includes('/watch') || currentUrl.includes('/shorts/')) {
-                        var video = document.querySelector('video');
                         if (video) {
                             video.muted = true; // Mute video YouTube bawaan
                         }
@@ -204,7 +230,8 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                setInterval(checkAndHook, 1500);
+
+                setInterval(checkAndHook, 800);
             })();
         """.trimIndent()
 
