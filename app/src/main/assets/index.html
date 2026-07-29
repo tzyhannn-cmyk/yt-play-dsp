@@ -1,1192 +1,1658 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Logic DSP 220 - Mobile DSP Management</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #05070f; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-        
-        /* Modern OLED Display Style */
-        .lcd-display {
-            background: linear-gradient(145deg, #020308, #0a0e1a);
-            border: 1px solid #1e293b;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.9);
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Logic DSP 220 - Analog Rack Processor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================
+       RESET & BASE STYLES
+       ========================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        /* --- MODERN MINIMALIST SLIDER STYLE --- */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: #1e293b;   
-            height: 3px;           
-            border-radius: 9999px; 
-            width: 100%;
-            outline: none;
-            transition: background 0.2s ease;
-        }
-        
-        input[type=range]:hover {
-            background: #334155;   
-        }
+    body {
+      background-color: #030508;
+      color: #cbd5e1;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+    }
 
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 12px;          
-            width: 12px;           
-            border-radius: 50%;    
-            background: #ffffff;   
-            cursor: pointer;
-            border: 2px solid #05070f;
-            box-shadow: 0 0 8px rgba(255,255,255,0.5);
-            margin-top: -4.5px;    
-            transition: transform 0.1s ease, background-color 0.1s;
-        }
-        input[type=range]:active::-webkit-slider-thumb {
-            transform: scale(1.2);
-            background: #06b6d4;
-        }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-        input[type=range]::-moz-range-thumb {
-            height: 12px; width: 12px; border-radius: 50%; background: #ffffff;
-            cursor: pointer; border: 2px solid #05070f;
-        }
+    .audio-rack {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
 
-        #seekSlider { height: 3px !important; }
+    /* Baut / Screw Styling */
+    .screw {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #d0d0d0 30%, #666 90%);
+      box-shadow: inset 1px 1px 1px rgba(255,255,255,0.8), 1px 1px 2px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+    .screw::after {
+      content: '';
+      position: absolute;
+      top: 5px;
+      left: 2px;
+      width: 8px;
+      height: 2px;
+      background: #333;
+      transform: rotate(35deg);
+    }
+    .screw.top-left { top: 8px; left: 8px; }
+    .screw.top-right { top: 8px; right: 8px; }
+    .screw.bottom-left { bottom: 8px; left: 8px; }
+    .screw.bottom-right { bottom: 8px; right: 8px; }
 
-        select {
-            background-color: #090d1a; 
-            border: 1px solid #1e293b; 
-            color: #f1f5f9; 
-            font-family: 'JetBrains Mono', monospace;
-            outline: none;
-        }
-        select:focus { border-color: #3b82f6; }
+    /* LCD Display */
+    .rack-lcd {
+      background: #020617;
+      border: 2px solid #1e293b;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.9);
+      color: #38bdf8;
+      font-family: 'JetBrains Mono', monospace;
+    }
 
-        .eq-scroll::-webkit-scrollbar { width: 4px; }
-        .eq-scroll::-webkit-scrollbar-track { background: #070a14; }
-        .eq-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        .eq-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+    /* ==========================================
+       1. PANELS ANALOG
+       ========================================== */
+    .panel-xover {
+      position: relative;
+      background: linear-gradient(180deg, #e8edf2 0%, #bdc8d4 100%);
+      border: 1px solid #8e9ba8;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.9);
+      color: #1a2332;
+    }
 
-        /* --- STYLE TOMBOL PANDUAN DI FOOTER (SESUAI GAMBAR 1000706701.png) --- */
-        #guide-footer-btn {
-            background-color: #06b6d4;
-            color: #05070f;
-            padding: 10px 24px;
-            border-radius: 50px;
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-top: 12px;
-        }
-        #guide-footer-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
-            background-color: #22d3ee;
-        }
-    </style>
+    .xover-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .xover-title-group {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .xover-title-group .brand {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #3b4856;
+    }
+
+    .xover-title-group .divider {
+      width: 1px;
+      height: 22px;
+      background: #8e9ba8;
+    }
+
+    .xover-title-group .main-title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #0f1c2e;
+    }
+
+    .xover-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+
+    .control-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #2c3848;
+      margin-bottom: 8px;
+    }
+
+    /* Knop Putar Analog Generic */
+    .xover-knob {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #e2e8f0 0%, #9ca3af 100%);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 2px 3px rgba(255,255,255,0.8);
+      position: relative;
+      cursor: pointer;
+      border: 1px solid #718096;
+      touch-action: none;
+      transform: rotate(-135deg);
+    }
+
+    .xover-knob .pointer-line {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      width: 3px;
+      height: 16px;
+      background-color: #1a202c;
+      transform-origin: bottom center;
+      margin-left: -1.5px;
+      border-radius: 2px;
+    }
+
+    .control-value {
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 6px;
+      color: #111827;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .slope-select {
+      background: #ffffff;
+      border: 1px solid #a0aec0;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #1a202c;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05);
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ==========================================
+       2. PANEL GAIN, PHASE & MUTE
+       ========================================== */
+    .panel-gain {
+      position: relative;
+      background: linear-gradient(180deg, #d4d8d8 0%, #9aa0a0 100%);
+      border: 3px solid #333;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+    }
+
+    .gain-chassis {
+      border: 1px solid #666;
+      border-radius: 4px;
+      background: linear-gradient(180deg, #cfd4d4 0%, #aab0b0 100%);
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .gain-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      user-select: none;
+      touch-action: none;
+      cursor: pointer;
+    }
+
+    .dial-svg {
+      width: 150px;
+      height: 120px;
+    }
+
+    .dial-ticks {
+      stroke: #1a1a1a;
+      stroke-width: 1.5;
+    }
+
+    .dial-text {
+      font-size: 9px;
+      font-weight: 800;
+      fill: #111;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .gain-pointer-knob {
+      position: absolute;
+      top: 22px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #444 0%, #111 100%);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .pointer-lever {
+      position: absolute;
+      width: 10px;
+      height: 58px;
+      background: linear-gradient(90deg, #222, #000, #222);
+      border-radius: 3px;
+      transform: rotate(-135deg);
+      transform-origin: center center;
+      box-shadow: 2px 4px 6px rgba(0,0,0,0.4);
+    }
+
+    .pointer-lever::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 3px;
+      width: 4px;
+      height: 20px;
+      background: #fff;
+      border-radius: 1px;
+    }
+
+    .gain-label {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #111;
+      margin-top: -5px;
+    }
+
+    .panel-divider-line {
+      width: 2px;
+      height: 100px;
+      background: #777;
+      border-right: 1px solid #eee;
+    }
+
+    .utility-section {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .phase-group, .mute-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sub-text {
+      font-size: 10px;
+      font-weight: 800;
+      color: #222;
+    }
+
+    .toggle-switch {
+      width: 20px;
+      height: 38px;
+      background: #222;
+      border-radius: 4px;
+      position: relative;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+      cursor: pointer;
+    }
+
+    .toggle-handle {
+      position: absolute;
+      top: 18px;
+      left: 3px;
+      width: 14px;
+      height: 16px;
+      background: linear-gradient(180deg, #eee 0%, #999 100%);
+      border-radius: 2px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      transition: top 0.1s ease;
+    }
+
+    .toggle-switch.active .toggle-handle {
+      top: 4px;
+    }
+
+    .main-text {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #111;
+    }
+
+    .led-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #400;
+      border: 1px solid #222;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    .led-indicator.active {
+      background: #ff3333;
+      box-shadow: 0 0 8px #ff0000, inset 0 1px 1px #fff;
+    }
+
+    .btn-mute {
+      background: linear-gradient(180deg, #dedede 0%, #a0a0a0 100%);
+      border: 1px solid #444;
+      border-radius: 3px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #111;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .btn-mute:active {
+      background: linear-gradient(180deg, #a0a0a0 0%, #dedede 100%);
+      transform: translateY(1px);
+    }
+
+    /* Rack Unit Panels (Cyan & Red) */
+    .panel-cyan {
+      background: linear-gradient(180deg, #0891b2 0%, #0e7490 50%, #155e75 100%);
+      color: #ffffff;
+      border: 1px solid #22d3ee;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+    }
+
+    .panel-red {
+      background: linear-gradient(180deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%);
+      color: #ffffff;
+      border: 1px solid #fca5a5;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+    }
+
+    /* ==========================================
+       3. CONSOLE EQUALIZER RACK STYLES
+       ========================================== */
+    .eq-console-panel {
+      background: linear-gradient(180deg, #d8dce2 0%, #cbd5e1 50%, #b0b9c6 100%);
+      border: 2px solid #475569;
+      border-radius: 8px;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.9), 0 6px 12px rgba(0,0,0,0.6);
+      padding: 10px 12px;
+      color: #0f172a;
+      font-family: 'JetBrains Mono', monospace;
+      position: relative;
+    }
+
+    .eq-grid-container {
+      position: relative;
+      background: #e2e8f0;
+      border: 1.5px solid #94a3b8;
+      border-radius: 4px;
+      padding: 6px 4px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .eq-grid-lines {
+      position: absolute;
+      inset: 24px 28px 24px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .eq-grid-line {
+      width: 100%;
+      border-bottom: 1px solid rgba(100, 116, 139, 0.35);
+    }
+    .eq-grid-line.zero-line {
+      border-bottom: 1.5px solid #0f172a;
+    }
+
+    .eq-slider-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .eq-val-display {
+      font-size: 8.5px;
+      font-weight: 700;
+      color: #0f172a;
+      height: 16px;
+      line-height: 16px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .eq-track-wrapper {
+      position: relative;
+      height: 130px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .eq-black-slot {
+      position: absolute;
+      width: 4px;
+      height: 120px;
+      background: #020617;
+      border-radius: 2px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.9);
+      z-index: 1;
+    }
+
+    .eq-v-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      writing-mode: vertical-lr;
+      direction: rtl;
+      orient: vertical;
+      width: 24px;
+      height: 120px;
+      background: transparent;
+      cursor: pointer;
+      outline: none;
+      z-index: 3;
+    }
+
+    .eq-v-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 12px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 35%, #475569 50%, #94a3b8 65%, #f8fafc 100%);
+      border: 1px solid #1e293b;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .eq-v-slider::-moz-range-thumb {
+      width: 22px;
+      height: 12px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 35%, #475569 50%, #94a3b8 65%, #f8fafc 100%);
+      border: 1px solid #1e293b;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .eq-freq-label {
+      font-size: 8.5px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    .eq-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .eq-scroll::-webkit-scrollbar-track { background: #070a14; }
+    .eq-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+
+    #guide-footer-btn {
+      background-color: #06b6d4; color: #05070f; padding: 10px 24px; border-radius: 50px;
+      font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); margin-top: 12px;
+    }
+    #guide-footer-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4); background-color: #22d3ee; }
+    
+    input[type=range].knob-input { display: none; }
+  </style>
 </head>
-<body class="text-slate-300 p-2 md:p-5 min-h-screen selection:bg-cyan-500 selection:text-black">
+<body class="selection:bg-cyan-500 selection:text-black">
 
-    <div class="max-w-[1700px] mx-auto space-y-4">
-        
-        <!-- TOP MATRIX HEADBOARD -->
-        <div class="bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/60 p-4 shadow-2xl">
-            <header class="flex flex-col gap-4 w-full">
-                
-                <!-- BARIS 1: BRANDING & OLED DISPLAY -->
-                <div class="flex flex-col md:flex-row md:items-center gap-4 w-full">
-                    <div class="md:border-r border-slate-800 md:pr-5 shrink-0">
-                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-0.5">AUDIO LOGIC</span>
-                        <h1 class="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                            <span class="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent font-bold font-mono text-sm">DSP 220 PRO</span>
-                        </h1>
-                    </div>
-                    
-                    <div class="lcd-display rounded-xl p-3 h-14 flex-1 flex justify-between items-center px-4 font-mono">
-                        <div>
-                            <div id="lcdPresetName" class="font-bold text-sm tracking-tight text-slate-100 flex items-center gap-1.5"></div>
-                            <div class="text-[10px] text-slate-500 tracking-wide mt-0.5 flex flex-wrap gap-1">
-                                <span>2-IN/2-OUT WITH</span>
-                                <span>XOVER COMPRESSOR LIMITER EQ DVC</span>
+  <div class="audio-rack">
+      
+      <!-- HEADER DISPLAY MATRIX & PLAYER -->
+      <div class="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 shadow-2xl">
+          <header class="flex flex-col gap-4 w-full">
+              <div class="flex flex-col md:flex-row md:items-center gap-4 w-full">
+                  <div class="md:border-r border-slate-800 md:pr-5 shrink-0">
+                      <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">AUDIO LOGIC</span>
+                      <h1 class="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                          <span class="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent font-bold font-mono text-sm">DSP 220 RACK PRO</span>
+                      </h1>
+                  </div>
+                  
+                  <div class="rack-lcd rounded-xl p-3 h-14 flex-1 flex justify-between items-center px-4">
+                      <div>
+                          <div id="lcdPresetName" class="font-bold text-sm tracking-tight text-cyan-400 flex items-center gap-1.5">
+                              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> SYSTEM READY
+                          </div>
+                          <div class="text-[10px] text-slate-400 tracking-wide mt-0.5 flex flex-wrap gap-1">
+                              <span>2-IN/2-OUT ANALOG RACK ENGINE</span>
+                              <span>• XOVER COMPRESSOR LIMITER EQ DVC</span>
+                          </div>
+                      </div>
+                      <div class="text-right border-l border-slate-800 pl-4 flex flex-col items-end shrink-0">
+                          <span class="text-[10px] font-semibold text-slate-400">DVC Engine</span>
+                          <div class="flex items-center gap-1.5 mt-1">
+                              <div id="dvcBadge" class="text-[8px] text-emerald-400 bg-emerald-950/50 px-1 py-0.5 rounded border border-emerald-900 font-bold">DVC ACTIVE</div>
+                              <button id="dvcToggleBtn" onclick="toggleDVC()" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-medium px-1.5 py-0.5 rounded border border-slate-700 transition">BYPASS</button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- PRESET & PLAYER CONTROLLER -->
+              <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full">
+                  <div class="flex items-center gap-1.5 bg-slate-950 p-2.5 rounded-xl border border-slate-800 shrink-0">
+                      <select id="presetSelect" onchange="loadSelectedPreset(this.value)" class="text-[11px] p-2 rounded-lg font-mono w-36 border border-slate-800 bg-slate-900 text-white">
+                          <option value="">-- PRESET --</option>
+                      </select>
+                      <button onclick="saveNewPreset()" class="bg-slate-200 hover:bg-white text-black text-[11px] font-bold px-2.5 py-2 rounded-md transition">SAVE</button>
+                      <button onclick="deletePreset()" class="bg-slate-900 hover:bg-red-950 hover:text-red-400 text-slate-400 text-[11px] font-medium px-2.5 py-2 rounded-md transition border border-slate-800">DEL</button>
+                  </div>
+                  
+                  <div class="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <div class="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
+                          <input type="file" id="audioFile" accept="audio/*" class="text-[10px] text-slate-500 w-full file:mr-2 file:py-0.5 file:px-2 file:rounded-md file:border file:border-slate-800 file:text-[10px] file:font-medium file:bg-slate-900 file:text-slate-300 hover:file:bg-slate-800 file:cursor-pointer">
+                          <div class="flex gap-1.5 items-center w-full sm:w-auto">
+                              <input type="text" id="ytUrlInput" placeholder="Paste YouTube Link..." class="bg-slate-900 border border-slate-800 text-[10px] text-slate-300 px-2 py-1 rounded-md focus:outline-none focus:border-cyan-500 flex-1 sm:w-48 font-mono">
+                              <button id="extractYtBtn" onclick="sendUrlToAndroid()" class="bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold px-3 py-1 rounded transition whitespace-nowrap">EXTRACT</button>
+                          </div>
+                      </div>
+
+                      <div class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-800 shrink-0 w-full sm:w-72">
+                          <button id="playPauseBtn" class="bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded transition w-16">PLAY</button>
+                          <span id="currentTimeDisplay" class="text-[10px] font-mono text-slate-500 w-8 text-right">0:00</span>
+                          <input type="range" id="seekSlider" min="0" max="100" value="0" class="accent-cyan-500 flex-1 h-1 bg-slate-800 rounded">
+                          <span id="durationDisplay" class="text-[10px] font-mono text-slate-500 w-8">0:00</span>
+                      </div>
+                  </div>
+                  <audio id="realAudio" class="hidden"></audio>
+              </div>
+          </header>
+      </div>
+
+      <!-- VISUALIZER GRAPH MATRIX -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col justify-between">
+              <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-2">
+                  <div class="flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+                      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Crossover Matrix & EQ Response Curve</h2>
+                  </div>
+                  <div class="flex gap-3 text-[9px] font-mono font-medium">
+                      <span class="text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-900">OUT 1</span>
+                      <span class="text-pink-400 bg-pink-950/40 px-2 py-0.5 rounded border border-pink-900">OUT 2</span>
+                  </div>
+              </div>
+              <div class="w-full h-44 sm:h-52">
+                  <canvas id="dlmsCoreChart"></canvas>
+              </div>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-950 rounded-2xl border border-slate-800 shadow-xl overflow-hidden h-52 sm:h-60 lg:h-auto flex flex-col">
+              <div class="flex items-center gap-2 bg-slate-900/80 px-4 py-3 border-b border-slate-800">
+                  <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                  <h2 class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Real-Time FFT Spectrum Analyzer</h2>
+              </div>
+              <div class="flex-1 relative">
+                  <canvas id="spectrumCanvas" class="w-full h-full block"></canvas>
+              </div>
+          </div>
+      </div>
+
+      <!-- PROCESSOR CHANNELS -->
+      <script>
+        const freqsDisplay = ["25", "40", "63", "100", "160", "250", "400", "630", "1k", "1k6", "2k5", "4k", "6k3", "10k", "16k"];
+        const freqsList = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
+
+        function renderRackChannel(ch, chTitle, themeColor) {
+            const isCh1 = ch === 1;
+            const accentColor = isCh1 ? 'cyan' : 'pink';
+
+            document.write(`
+                <div class="space-y-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 relative">
+                    <!-- CHANNEL HEADER & ROUTING -->
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-slate-900 border border-${accentColor}-500/50 flex items-center justify-center text-${accentColor}-400 font-bold font-mono text-base shadow-inner">0${ch}</div>
+                            <div>
+                                <h3 class="text-sm font-black text-white tracking-tight uppercase">${chTitle}</h3>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-900 p-1 rounded border border-slate-800">
+                                        <span class="text-slate-500 font-bold px-1">IN:</span>
+                                        <select id="route-ch${ch}" class="hidden" onchange="updateHardwareDSP()">
+                                            <option value="LEFT">LEFT</option><option value="RIGHT">RIGHT</option><option value="MONO">MONO</option><option value="MUTE">MUTE</option>
+                                        </select>
+                                        <button type="button" id="rt-${ch}-LEFT" onclick="setChannelRoute(${ch}, 'LEFT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN A</button>
+                                        <button type="button" id="rt-${ch}-RIGHT" onclick="setChannelRoute(${ch}, 'RIGHT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN B</button>
+                                        <button type="button" id="rt-${ch}-MONO" onclick="setChannelRoute(${ch}, 'MONO')" class="px-1.5 py-0.5 rounded font-semibold transition">SUM</button>
+                                        <button type="button" id="rt-${ch}-MUTE" onclick="setChannelRoute(${ch}, 'MUTE')" class="px-1.5 py-0.5 rounded font-semibold transition">MUTE</button>
+                                    </div>
+                                    <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-900 p-1 rounded border border-slate-800">
+                                        <span class="text-slate-500 font-bold px-1">OUT:</span>
+                                        <button type="button" id="out-${ch}-L" onclick="setOutRoute(${ch}, 'L')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT L</button>
+                                        <button type="button" id="out-${ch}-R" onclick="setOutRoute(${ch}, 'R')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT R</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="text-right border-l border-slate-800/80 pl-4 flex flex-col items-end shrink-0">
-                            <span class="text-[10px] font-semibold text-slate-400">DVC Engine</span>
-                            <div class="flex items-center gap-1.5 mt-1">
-                                <div id="dvcBadge" class="text-[8px] text-emerald-400 bg-emerald-950/30 px-1 py-0.2 rounded border border-emerald-900/50 font-bold">DVC ACTIVE</div>
-                                <button id="dvcToggleBtn" onclick="toggleDVC()" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-medium px-1.5 py-0.2 rounded border border-slate-700 transition">BYPASS</button>
+
+                        <!-- VU METERS & LIMIT LED -->
+                        <div class="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800 w-full lg:w-72">
+                            <span id="lim-led-${ch}" class="px-2 py-3 rounded text-[9px] font-black bg-slate-950 text-slate-600 border border-slate-800 text-center tracking-tighter">LIM</span>
+                            <div class="flex flex-col gap-2 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">SIG</span>
+                                    <div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 relative">
+                                        <div id="vu-sig-bar-${ch}" class="h-full w-0 transition-all duration-75" style="background: linear-gradient(to right, #10b981 65%, #f59e0b 85%, #ef4444 100%);"></div>
+                                    </div>
+                                    <span id="db-sig-${ch}" class="text-slate-400 font-mono text-[9px] w-10 text-right">-∞ dB</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">G.R</span>
+                                    <div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 relative">
+                                        <div id="vu-gr-bar-${ch}" class="h-full w-0 transition-all duration-75 bg-amber-500"></div>
+                                    </div>
+                                    <span id="db-gr-${ch}" class="text-amber-500 font-mono text-[9px] w-10 text-right">0.0 dB</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- BARIS 2: PRESET SYSTEM & AUDIO PLAYER CONTROLLER -->
-                <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full">
-                    <div class="flex items-center gap-1.5 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80 shrink-0">
-                        <select id="presetSelect" class="text-[11px] p-2 rounded-lg font-mono w-36 border border-slate-800">
-                            <option value="">-- PRESET --</option>
-                        </select>
-                        <button onclick="saveNewPreset()" class="bg-slate-100 hover:bg-white text-black text-[11px] font-bold px-2.5 py-2 rounded-md transition">SAVE</button>
-                        <button onclick="deletePreset()" class="bg-slate-900 hover:bg-red-950 hover:text-red-400 text-slate-400 text-[11px] font-medium px-2.5 py-2 rounded-md transition border border-slate-800">DEL</button>
-                    </div>
-                    
-                    <!-- KODE CONTROLLER BARU DENGAN SLOT paste LINK YOUTUBE -->
-                    <div class="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-                        <div class="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
-                            <!-- Tempat Input File Musik dari HP (Asli) -->
-                            <input type="file" id="audioFile" accept="audio/*" class="text-[10px] text-slate-500 w-full file:mr-2 file:py-0.5 file:px-2 file:rounded-md file:border file:border-slate-800 file:text-[10px] file:font-medium file:bg-slate-900 file:text-slate-300 hover:file:bg-slate-800 file:cursor-pointer">
+                    <!-- 1. PRE / XOVER PANEL (GAMBAR 1 DESIGN) -->
+                    <div class="panel-xover">
+                        <div class="screw top-left"></div>
+                        <div class="screw top-right"></div>
 
-                            <!-- SLOT BARU: Tempat Paste Link YouTube -->
-                            <div class="flex gap-1.5 items-center w-full sm:w-auto">
-                                <input type="text" id="ytUrlInput" placeholder="Paste YouTube Link..." class="bg-slate-900 border border-slate-800 text-[10px] text-slate-300 px-2 py-1 rounded-md focus:outline-none focus:border-cyan-500 flex-1 sm:w-48 font-mono">
-                                <button id="extractYtBtn" onclick="sendUrlToAndroid()" class="bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold px-3 py-1 rounded transition whitespace-nowrap">EXTRACT</button>
+                        <div class="xover-header">
+                            <div class="xover-title-group">
+                                <span class="brand">AUDIO LOGIC</span>
+                                <div class="divider"></div>
+                                <span class="main-title">PRE / XOVER CH${ch}</span>
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-2 bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/60 shrink-0 w-full sm:w-72">
-                            <button id="playPauseBtn" class="bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded transition w-16">PLAY</button>
-                            <span id="currentTimeDisplay" class="text-[10px] font-mono text-slate-500 w-8 text-right">0:00</span>
-                            <input type="range" id="seekSlider" min="0" max="100" value="0" class="accent-cyan-500">
-                            <span id="durationDisplay" class="text-[10px] font-mono text-slate-500 w-8">0:00</span>
-                        </div>
-                    </div>
-                    <audio id="realAudio" class="hidden"></audio>
-                </div>
+                        <div class="xover-controls">
+                            <!-- HPF FREQ -->
+                            <div class="control-item" id="kc-hpf-${ch}">
+                                <span class="control-label">HPF FREQ</span>
+                                <div class="xover-knob" id="kb-hpf-${ch}">
+                                    <div class="pointer-line"></div>
+                                </div>
+                                <input type="range" id="hpf-${ch}" min="${isCh1 ? 20 : 100}" max="${isCh1 ? 200 : 1000}" step="1" value="${isCh1 ? 20 : 100}" class="knob-input">
+                                <span class="control-value" id="hpf-lbl-${ch}">20 Hz</span>
+                            </div>
 
-            </header>
-        </div>
-
-        <!-- ACOUSTIC COMMAND CENTER -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div class="lg:col-span-7 bg-slate-900/40 rounded-2xl border border-slate-800/60 p-4 shadow-xl flex flex-col justify-between">
-                <div class="flex justify-between items-center border-b border-slate-800/60 pb-2 mb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
-                        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Crossover Matrix & EQ Response Curve</h2>
-                    </div>
-                    <div class="flex gap-3 text-[9px] font-mono font-medium">
-                        <span class="text-cyan-400 bg-cyan-950/30 px-2 py-0.5 rounded border border-cyan-900/50">OUT 1</span>
-                        <span class="text-pink-400 bg-pink-950/30 px-2 py-0.5 rounded border border-pink-900/50">OUT 2</span>
-                    </div>
-                </div>
-                <div class="w-full h-44 sm:h-52">
-                    <canvas id="dlmsCoreChart"></canvas>
-                </div>
-            </div>
-
-            <div class="lg:col-span-5 bg-slate-900/40 rounded-2xl border border-slate-800/60 shadow-xl overflow-hidden h-52 sm:h-60 lg:h-auto flex flex-col">
-                <div class="flex items-center gap-2 bg-slate-950/50 px-4 py-3 border-b border-slate-800/60">
-                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                    <h2 class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Real-Time FFT Spectrum Analyzer</h2>
-                </div>
-                <div class="flex-1 relative">
-                    <canvas id="spectrumCanvas" class="w-full h-full block"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- OUTPUT CHANNEL CONTROLLERS -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            
-            <!-- CHANNEL 1 PROCESSOR STRIP -->
-            <div class="out-ch1 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/60 border-t-2 border-t-cyan-500 shadow-xl space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/40 pb-3 gap-3">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 font-bold font-mono text-sm shadow-inner">01</div>
-                        <div class="space-y-1">
-                            <h3 class="text-sm font-bold text-white tracking-tight uppercase">Low / Subwoofer </h3>
-                            <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-950 p-1 rounded-md border border-slate-800">
-                                <span class="text-slate-600 font-bold px-1">IN:</span>
-                                <select id="route-ch1" class="hidden">
-                                    <option value="LEFT">LEFT</option>
-                                    <option value="RIGHT">RIGHT</option>
-                                    <option value="MONO">MONO</option>
-                                    <option value="MUTE">MUTE</option>
+                            <!-- HPF SLOPE -->
+                            <div class="control-item">
+                                <span class="control-label">HPF SLOPE</span>
+                                <select id="hpf-slope-${ch}" onchange="updateHardwareDSP()" class="slope-select">
+                                    <option value="BW-12">BW 12dB</option>
+                                    <option value="BW-24">BW 24dB</option>
+                                    <option value="LR-24" selected>LR 24dB</option>
+                                    <option value="LR-48">LR 48dB</option>
                                 </select>
-                                <button type="button" id="rt-1-LEFT" onclick="setChannelRoute(1, 'LEFT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN A</button>
-                                <button type="button" id="rt-1-RIGHT" onclick="setChannelRoute(1, 'RIGHT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN B</button>
-                                <button type="button" id="rt-1-MONO" onclick="setChannelRoute(1, 'MONO')" class="px-1.5 py-0.5 rounded font-semibold transition">SUM</button>
-                                <button type="button" id="rt-1-MUTE" onclick="setChannelRoute(1, 'MUTE')" class="px-1.5 py-0.5 rounded font-semibold transition">MUTE</button>
                             </div>
-                            <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-950 p-1 rounded-md border border-slate-800">
-                                <span class="text-slate-600 font-bold px-1">OUT:</span>
-                                <button type="button" id="out-1-L" onclick="setOutRoute(1, 'L')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT L</button>
-                                <button type="button" id="out-1-R" onclick="setOutRoute(1, 'R')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT R</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 w-full sm:w-64">
-                        <span id="lim-led-1" class="px-1.5 py-2 rounded text-[9px] font-black bg-slate-900 text-slate-500 border border-slate-800 transition-all text-center tracking-tighter">LIM</span>
-                        <div class="flex flex-col gap-2 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">SIG</span>
-                                <div class="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden relative border border-slate-800/40">
-                                    <div id="vu-sig-bar-1" class="h-full w-0 rounded-full transition-all duration-75" style="background: linear-gradient(to right, #10b981 65%, #f59e0b 85%, #ef4444 100%); box-shadow: 0 0 8px rgba(16,185,129,0.4);"></div>
+
+                            <!-- LPF FREQ -->
+                            <div class="control-item" id="kc-lpf-${ch}">
+                                <span class="control-label">LPF FREQ</span>
+                                <div class="xover-knob" id="kb-lpf-${ch}">
+                                    <div class="pointer-line"></div>
                                 </div>
-                                <span id="db-sig-1" class="text-slate-400 font-mono text-[9px] w-12 text-right">-∞ dB</span>
+                                <input type="range" id="lpf-${ch}" min="${isCh1 ? 100 : 2000}" max="${isCh1 ? 500 : 16000}" step="1" value="${isCh1 ? 500 : 16000}" class="knob-input">
+                                <span class="control-value" id="lpf-lbl-${ch}">500 Hz</span>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">G.R</span>
-                                <div class="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden relative border border-slate-800/40">
-                                    <div id="vu-gr-bar-1" class="h-full w-0 rounded-full transition-all duration-75 bg-amber-500" style="box-shadow: 0 0 8px rgba(245,158,11,0.4);"></div>
+
+                            <!-- LPF SLOPE -->
+                            <div class="control-item">
+                                <span class="control-label">LPF SLOPE</span>
+                                <select id="lpf-slope-${ch}" onchange="updateHardwareDSP()" class="slope-select">
+                                    <option value="BW-12">BW 12dB</option>
+                                    <option value="BW-24">BW 24dB</option>
+                                    <option value="LR-24" selected>LR 24dB</option>
+                                    <option value="LR-48">LR 48dB</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. GAIN & UTILITIES PANEL (GAMBAR 2 DESIGN) -->
+                    <div class="panel-gain">
+                        <div class="screw top-left"></div>
+                        <div class="screw top-right"></div>
+                        <div class="screw bottom-left"></div>
+                        <div class="screw bottom-right"></div>
+
+                        <div class="gain-chassis">
+                            <!-- GAIN KNOB DIAL -->
+                            <div class="gain-section" id="kc-vol-${ch}">
+                                <svg class="dial-svg" viewBox="0 0 160 130">
+                                    <line x1="32" y1="105" x2="42" y2="98" class="dial-ticks" /><text x="22" y="112" class="dial-text">0</text>
+                                    <line x1="26" y1="85" x2="37" y2="81" class="dial-ticks" /><text x="14" y="90" class="dial-text">10</text>
+                                    <line x1="28" y1="62" x2="39" y2="63" class="dial-ticks" /><text x="14" y="64" class="dial-text">20</text>
+                                    <line x1="38" y1="42" x2="47" y2="48" class="dial-ticks" /><text x="26" y="40" class="dial-text">30</text>
+                                    <line x1="56" y1="26" x2="62" y2="36" class="dial-ticks" /><text x="48" y="20" class="dial-text">40</text>
+                                    <line x1="80" y1="20" x2="80" y2="31" class="dial-ticks" /><text x="80" y="12" class="dial-text">50</text>
+                                    <line x1="104" y1="26" x2="98" y2="36" class="dial-ticks" /><text x="112" y="20" class="dial-text">60</text>
+                                    <line x1="122" y1="42" x2="113" y2="48" class="dial-ticks" /><text x="134" y="40" class="dial-text">70</text>
+                                    <line x1="132" y1="62" x2="121" y2="63" class="dial-ticks" /><text x="146" y="64" class="dial-text">80</text>
+                                    <line x1="134" y1="85" x2="123" y2="81" class="dial-ticks" /><text x="146" y="90" class="dial-text">90</text>
+                                    <line x1="128" y1="105" x2="118" y2="98" class="dial-ticks" /><text x="140" y="112" class="dial-text">100</text>
+                                </svg>
+
+                                <div class="gain-pointer-knob">
+                                    <div class="pointer-lever" id="kb-vol-${ch}"></div>
                                 </div>
-                                <span id="db-gr-1" class="text-amber-500 font-mono text-[9px] w-12 text-right">0.0 dB</span>
+                                <input type="range" id="vol-ch${ch}" min="0" max="1" step="0.01" value="1.0" class="knob-input">
+
+                                <span class="gain-label">GAIN</span>
+                                <span id="vol-lbl-${ch}" class="text-[10px] font-mono font-bold text-slate-800 mt-1">0.0 dB</span>
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex flex-col sm:flex-row items-center gap-3">
-                    <div class="flex-1 w-full">
-                        <div class="flex justify-between text-[11px] mb-1">
-                            <span class="text-slate-400 font-medium">Gain Fader (<span id="dvc-lbl-pow-1" class="text-slate-500">DVC Engine</span>)</span>
-                            <span id="vol-lbl-1" class="text-cyan-400 font-bold font-mono">100%</span>
-                        </div>
-                        <input type="range" id="vol-ch1" min="0" max="1" step="0.01" value="1.0" class="accent-cyan-500">
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-3">
-                        <button id="phase-ch1" onclick="togglePhase(1)" class="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-[10px] font-semibold rounded-md text-slate-300 border border-slate-800 transition">Ø 180°</button>
-                        <button id="mute-ch1" onclick="toggleMute(1)" class="px-2.5 py-1.5 bg-slate-900 text-[10px] font-semibold rounded-md text-slate-300 border border-slate-800 transition min-w-[60px]">MUTE</button>
-                    </div>
-                </div>
+                            <div class="panel-divider-line"></div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/40">
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[11px] text-slate-400">HPF Frequency</label>
-                            <span id="hpf-lbl-1" class="text-cyan-400 font-bold font-mono text-xs">20 Hz</span>
-                        </div>
-                        <input type="range" id="hpf-1" min="20" max="200" value="20" class="accent-cyan-500">
-                        <select id="hpf-slope-1" class="text-[9px] rounded p-1 w-full mt-2 border border-slate-800">
-                            <option value="BW-12">BW 12dB</option><option value="BW-24">BW 24dB</option><option value="LR-24" selected>LR 24dB</option><option value="LR-48">LR 48dB</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[11px] text-slate-400">LPF Frequency</label>
-                            <span id="lpf-lbl-1" class="text-cyan-400 font-bold font-mono text-xs">500 Hz</span>
-                        </div>
-                        <input type="range" id="lpf-1" min="100" max="500" step="1" value="500" class="accent-cyan-500">
-                        <select id="lpf-slope-1" class="text-[9px] rounded p-1 w-full mt-2 border border-slate-800">
-                            <option value="BW-12">BW 12dB</option><option value="BW-24">BW 24dB</option><option value="LR-24" selected>LR 24dB</option><option value="LR-48">LR 48dB</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-12 gap-3">
-                    <div class="xl:col-span-5 space-y-3 flex flex-col justify-between">
-                        <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/40 space-y-2 flex-1">
-                            <div class="flex justify-between items-center border-b border-slate-900 pb-1.5 mb-1">
-                                <label class="text-[10px] font-bold text-amber-500 uppercase tracking-tight">Sub Low Shelf</label>
-                                <span id="shelf-lbl-1" class="text-amber-500 font-mono text-[10px] font-bold">0dB @ 60Hz</span>
-                            </div>
-                            <div class="space-y-1 text-[9px]">
-                                <div class="text-[8px] text-slate-500 font-mono">Frequency</div>
-                                <input type="range" id="shelf-freq-1" min="30" max="150" value="60" class="!accent-amber-500">
-                                <div class="text-[8px] text-slate-500 font-mono">Q Factor</div>
-                                <div class="flex items-center gap-1">
-                                    <input type="range" id="shelf-q-1" min="0.1" max="2.0" step="0.05" value="0.7" class="!accent-amber-500 flex-1">
-                                    <span id="shelf-q-lbl-1" class="font-mono text-amber-500 w-6 text-right">0.70</span>
+                            <!-- PHASE & MUTE UTILITIES -->
+                            <div class="utility-section">
+                                <div class="phase-group">
+                                    <span class="sub-text">INV</span>
+                                    <div class="toggle-switch" id="toggle-switch-phase-${ch}" onclick="togglePhase(${ch})">
+                                        <div class="toggle-handle"></div>
+                                    </div>
+                                    <span class="main-text">PHASE</span>
+                                    <span class="text-[9px] font-mono font-extrabold text-slate-700" id="phase-lbl-${ch}">NORM</span>
                                 </div>
-                                <div class="text-[8px] text-slate-600 font-mono pt-1">Gain Sub-Shelf (<span id="dvc-lbl-safe-1">Safe</span>)</div>
-                                <input type="range" id="shelf-gain-1" min="-12" max="12" step="0.5" value="0" class="!accent-amber-500">
+
+                                <div class="mute-group">
+                                    <div class="led-indicator" id="led-mute-${ch}"></div>
+                                    <button class="btn-mute" onclick="toggleMute(${ch})">MUTE</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/40">
-                            <div class="flex justify-between text-[11px] mb-1">
-                                <span class="text-slate-400">Alignment Delay</span>
-                                <span id="delay-lbl-1" class="text-amber-500 font-bold font-mono">0.0 ms</span>
-                            </div>
-                            <input type="range" id="delay-1" min="0" max="50" step="0.1" value="0" class="accent-amber-500">
                         </div>
                     </div>
 
-                    <div class="xl:col-span-7 bg-slate-950/60 p-3 rounded-xl border border-slate-800/40 flex flex-col justify-between">
-                        <h4 class="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5 mb-2">Compressor / Peak Limiter</h4>
-                        <div class="grid grid-cols-2 gap-x-3 gap-y-2 text-slate-400 font-mono text-[9px]">
-                            <div><div>Thresh</div><input type="range" id="comp-t-1" min="-60" max="0" value="0" class="mt-1"><span id="comp-t-lbl-1" class="text-slate-200 block mt-0.5">0 dB</span></div>
-                            <div><div>Ratio</div><input type="range" id="comp-r-1" min="1" max="20" step="0.5" value="1" class="mt-1"><span id="comp-r-lbl-1" class="text-slate-200 block mt-0.5">1.0:1</span></div>
-                            <div><div>Attack</div><input type="range" id="comp-a-1" min="1" max="100" value="30" class="mt-1"><span id="comp-a-lbl-1" class="text-slate-200 block mt-0.5">30 ms</span></div>
-                            <div><div>Release</div><input type="range" id="comp-v-1" min="50" max="1000" step="10" value="200" class="mt-1"><span id="comp-v-lbl-1" class="text-slate-200 block mt-0.5">200 ms</span></div>
-                            <div class="col-span-2 border-t border-slate-900 pt-2 mt-1">
-                                <div class="text-emerald-400 font-medium flex justify-between"><span>Peak Limit Threshold</span> <span id="limit-t-lbl-1" class="font-bold">0.0 dB</span></div>
-                                <input type="range" id="limit-t-1" min="-20" max="0" step="0.5" value="0" class="mt-1 !accent-emerald-500">
+                    <!-- 3. CYAN RACK UNIT: DVC DSP & SHELF FILTER -->
+                    <div class="panel-cyan rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 relative">
+                        <div class="screw top-left"></div><div class="screw top-right"></div>
+                        <div class="pl-4 border-r border-cyan-700 pr-3">
+                            <span class="text-[9px] font-black tracking-widest text-cyan-200 uppercase block font-mono">DVC DSP ENGINE</span>
+                            <span class="text-xs font-black text-white">${isCh1 ? 'SUB LOW SHELF' : 'MID HIGH SHELF'}</span>
+                        </div>
+
+                        <div class="flex items-center gap-4 flex-wrap">
+                            <!-- SHELF FREQ KNOB -->
+                            <div class="control-item" id="kc-shelf-freq-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Frequency</span>
+                                <div class="xover-knob" id="kb-shelf-freq-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="shelf-freq-${ch}" min="${isCh1 ? 30 : 1000}" max="${isCh1 ? 150 : 8000}" step="${isCh1 ? 1 : 50}" value="${isCh1 ? 60 : 4000}" class="knob-input">
+                                <span id="shelf-freq-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-16 text-center">60 Hz</span>
+                            </div>
+
+                            <!-- SHELF Q KNOB -->
+                            <div class="control-item" id="kc-shelf-q-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Q Factor</span>
+                                <div class="xover-knob" id="kb-shelf-q-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="shelf-q-${ch}" min="0.1" max="2.0" step="0.05" value="0.7" class="knob-input">
+                                <span id="shelf-q-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-12 text-center">0.70</span>
+                            </div>
+
+                            <!-- SHELF GAIN KNOB -->
+                            <div class="control-item" id="kc-shelf-gain-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Gain Boost</span>
+                                <div class="xover-knob" id="kb-shelf-gain-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="shelf-gain-${ch}" min="-12" max="12" step="0.5" value="0" class="knob-input">
+                                <span id="shelf-gain-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-16 text-center">0.0 dB</span>
+                            </div>
+                        </div>
+
+                        <div class="rack-lcd p-1.5 rounded text-[9px] font-mono text-center border border-cyan-500/40 min-w-[110px]">
+                            <span>STATUS: DVC OK</span><br>
+                            <span class="text-[8px] text-cyan-300">DVC: <span id="dvc-lbl-safe-${ch}">Safe</span></span>
+                        </div>
+                    </div>
+
+                    <!-- 4. RED RACK UNIT: DYNAMICS (COMP / LIMITER / DELAY) -->
+                    <div class="panel-red rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 relative">
+                        <div class="screw top-left"></div><div class="screw top-right"></div>
+                        <div class="pl-4 border-r border-red-900 pr-3">
+                            <span class="text-[9px] font-black tracking-widest text-red-200 uppercase block font-mono">DYNAMICS</span>
+                            <span class="text-xs font-black text-white">COMP / LIMITER / DELAY</span>
+                        </div>
+
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <div class="control-item" id="kc-comp-t-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Thresh</span>
+                                <div class="xover-knob" id="kb-comp-t-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="comp-t-${ch}" min="-60" max="0" value="0" class="knob-input">
+                                <span id="comp-t-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">0 dB</span>
+                            </div>
+
+                            <div class="control-item" id="kc-comp-r-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Ratio</span>
+                                <div class="xover-knob" id="kb-comp-r-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="comp-r-${ch}" min="1" max="20" step="0.5" value="1" class="knob-input">
+                                <span id="comp-r-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">1.0:1</span>
+                            </div>
+
+                            <div class="control-item" id="kc-comp-a-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Attack</span>
+                                <div class="xover-knob" id="kb-comp-a-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="comp-a-${ch}" min="1" max="100" value="30" class="knob-input">
+                                <span id="comp-a-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">30 ms</span>
+                            </div>
+
+                            <div class="control-item" id="kc-comp-v-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Release</span>
+                                <div class="xover-knob" id="kb-comp-v-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="comp-v-${ch}" min="50" max="1000" step="10" value="200" class="knob-input">
+                                <span id="comp-v-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">200 ms</span>
+                            </div>
+
+                            <div class="control-item border-l border-red-800 pl-2" id="kc-limit-t-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-amber-200 mb-1">Peak Limit</span>
+                                <div class="xover-knob" id="kb-limit-t-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="limit-t-${ch}" min="-20" max="0" step="0.5" value="0" class="knob-input">
+                                <span id="limit-t-lbl-${ch}" class="text-[9px] font-mono text-amber-200 mt-1">0.0 dB</span>
+                            </div>
+
+                            <div class="control-item border-l border-red-800 pl-2" id="kc-delay-${ch}">
+                                <span class="text-[8px] font-bold uppercase text-yellow-300 mb-1">Delay</span>
+                                <div class="xover-knob" id="kb-delay-${ch}"><div class="pointer-line"></div></div>
+                                <input type="range" id="delay-${ch}" min="0" max="50" step="0.1" value="0" class="knob-input">
+                                <span id="delay-lbl-${ch}" class="text-[9px] font-mono text-yellow-300 mt-1">0.0 ms</span>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-                    <div class="flex justify-between items-center border-b border-slate-900 pb-1.5 mb-2">
-                        <h4 class="text-[10px] font-bold text-slate-500 tracking-wider uppercase">15-Band Parametric Equalizer</h4>
-                        <div class="flex gap-2">
-                            <button id="eq-bypass-1" onclick="toggleEQBypass(1)" class="text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded font-medium transition">BYPASS  OFF</button>
-                            <button onclick="resetEQ(1)" class="text-[9px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-800 font-medium transition">RESET</button>
+                    <!-- 5. 15-BAND GRAPHIC EQUALIZER -->
+                    <div class="eq-console-panel">
+                        <div class="flex justify-between items-center border-b border-slate-500/60 pb-1.5 mb-2">
+                            <span class="text-[10px] font-black text-slate-900 tracking-wider uppercase font-mono">15-BAND CONSOLE GRAPHIC EQUALIZER CH${ch}</span>
+                            <div class="flex gap-2">
+                                <button id="eq-bypass-${ch}" onclick="toggleEQBypass(${ch})" class="text-[9px] bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.5 rounded font-bold transition shadow">BYPASS OFF</button>
+                                <button onclick="resetEQ(${ch})" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-100 px-2 py-0.5 rounded border border-slate-600 font-bold transition shadow">RESET</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="space-y-1.5 max-h-36 overflow-y-auto eq-scroll pr-1.5 pt-1">
-                        <script>
-                            const freqsList = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
-                            const generateEQControls = (ch) => {
-                                freqsList.forEach((f, idx) => {
-                                    let fStr = f >= 1000 ? (f/1000).toFixed(1) + " kHz" : f + " Hz";
-                                    document.write(`
-                                        <div class="flex items-center justify-between text-[10px] font-mono py-0.5 border-b border-slate-900/40 last:border-0">
-                                            <span class="w-14 text-slate-500 font-medium">${fStr}</span>
-                                            <input type="range" id="eq-${ch}-${idx}" min="-12" max="12" value="0" class="flex-1 mx-2">
-                                            <span id="eq-lbl-${ch}-${idx}" class="w-10 text-right text-slate-400 font-semibold">0dB</span>
+
+                        <div class="eq-grid-container">
+                            <div class="eq-grid-lines">
+                                <div class="eq-grid-line"></div><div class="eq-grid-line"></div>
+                                <div class="eq-grid-line zero-line"></div>
+                                <div class="eq-grid-line"></div><div class="eq-grid-line"></div>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-1 overflow-x-auto eq-scroll">
+                                ${freqsList.map((f, idx) => `
+                                    <div class="eq-slider-column">
+                                        <span id="eq-lbl-${ch}-${idx}" class="eq-val-display">0.0</span>
+                                        <div class="eq-track-wrapper">
+                                            <div class="eq-black-slot"></div>
+                                            <input type="range" id="eq-${ch}-${idx}" min="-12" max="12" step="0.1" value="0" oninput="updateHardwareDSP()" class="eq-v-slider">
                                         </div>
-                                    `);
-                                });
-                            }; generateEQControls(1);
-                        </script>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CHANNEL 2 PROCESSOR STRIP -->
-            <div class="out-ch2 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/60 border-t-2 border-t-pink-500 shadow-xl space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/40 pb-3 gap-3">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-pink-950/80 border border-pink-800 flex items-center justify-center text-pink-400 font-bold font-mono text-sm shadow-inner">02</div>
-                        <div class="space-y-1">
-                            <h3 class="text-sm font-bold text-white tracking-tight uppercase">High / Mid-Hi </h3>
-                            <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-950 p-1 rounded-md border border-slate-800">
-                                <span class="text-slate-600 font-bold px-1">IN:</span>
-                                <select id="route-ch2" class="hidden">
-                                    <option value="LEFT">LEFT</option>
-                                    <option value="RIGHT">RIGHT</option>
-                                    <option value="MONO">MONO</option>
-                                    <option value="MUTE">MUTE</option>
-                                </select>
-                                <button type="button" id="rt-2-LEFT" onclick="setChannelRoute(2, 'LEFT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN A</button>
-                                <button type="button" id="rt-2-RIGHT" onclick="setChannelRoute(2, 'RIGHT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN B</button>
-                                <button type="button" id="rt-2-MONO" onclick="setChannelRoute(2, 'MONO')" class="px-1.5 py-0.5 rounded font-semibold transition">SUM</button>
-                                <button type="button" id="rt-2-MUTE" onclick="setChannelRoute(2, 'MUTE')" class="px-1.5 py-0.5 rounded font-semibold transition">MUTE</button>
-                            </div>
-                            <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-950 p-1 rounded-md border border-slate-800">
-                                <span class="text-slate-600 font-bold px-1">OUT:</span>
-                                <button type="button" id="out-2-L" onclick="setOutRoute(2, 'L')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT L</button>
-                                <button type="button" id="out-2-R" onclick="setOutRoute(2, 'R')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT R</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 w-full sm:w-64">
-                        <span id="lim-led-2" class="px-1.5 py-2 rounded text-[9px] font-black bg-slate-900 text-slate-500 border border-slate-800 transition-all text-center tracking-tighter">LIM</span>
-                        <div class="flex flex-col gap-2 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">SIG</span>
-                                <div class="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden relative border border-slate-800/40">
-                                    <div id="vu-sig-bar-2" class="h-full w-0 rounded-full transition-all duration-75" style="background: linear-gradient(to right, #10b981 65%, #f59e0b 85%, #ef4444 100%); box-shadow: 0 0 8px rgba(16,185,129,0.4);"></div>
-                                </div>
-                                <span id="db-sig-2" class="text-slate-400 font-mono text-[9px] w-12 text-right">-∞ dB</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">G.R</span>
-                                <div class="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden relative border border-slate-800/40">
-                                    <div id="vu-gr-bar-2" class="h-full w-0 rounded-full transition-all duration-75 bg-amber-500" style="box-shadow: 0 0 8px rgba(245,158,11,0.4);"></div>
-                                </div>
-                                <span id="db-gr-2" class="text-amber-500 font-mono text-[9px] w-12 text-right">0.0 dB</span>
+                                        <span class="eq-freq-label">${freqsDisplay[idx]}</span>
+                                    </div>
+                                `).join('')}
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex flex-col sm:flex-row items-center gap-3">
-                    <div class="flex-1 w-full">
-                        <div class="flex justify-between text-[11px] mb-1">
-                            <span class="text-slate-400 font-medium">Gain Fader (<span id="dvc-lbl-pow-2" class="text-slate-500">Direct Fader</span>)</span>
-                            <span id="vol-lbl-2" class="text-pink-400 font-bold font-mono">100%</span>
-                        </div>
-                        <input type="range" id="vol-ch2" min="0" max="1" step="0.01" value="1.0" class="accent-pink-500">
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-3">
-                        <button id="phase-ch2" onclick="togglePhase(2)" class="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-[10px] font-semibold rounded-md text-slate-300 border border-slate-800 transition">Ø 180°</button>
-                        <button id="mute-ch2" onclick="toggleMute(2)" class="px-2.5 py-1.5 bg-slate-900 text-[10px] font-semibold rounded-md text-slate-300 border border-slate-800 transition min-w-[60px]">MUTE</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/40">
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[11px] text-slate-400">HPF Frequency</label>
-                            <span id="hpf-lbl-2" class="text-pink-400 font-bold font-mono text-xs">100 Hz</span>
-                        </div>
-                        <input type="range" id="hpf-2" min="100" max="1000" step="1" value="100" class="accent-pink-500">
-                        <select id="hpf-slope-2" class="text-[9px] rounded p-1 w-full mt-2 border border-slate-800">
-                            <option value="BW-12">BW 12dB</option><option value="BW-24">BW 24dB</option><option value="LR-24" selected>LR 24dB</option><option value="LR-48">LR 48dB</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[11px] text-slate-400">LPF Frequency</label>
-                            <span id="lpf-lbl-2" class="text-pink-400 font-bold font-mono text-xs">16 kHz</span>
-                        </div>
-                        <input type="range" id="lpf-2" min="2000" max="16000" step="1" value="16000" class="accent-pink-500">
-                        <select id="lpf-slope-2" class="text-[9px] rounded p-1 w-full mt-2 border border-slate-800">
-                            <option value="BW-12">BW 12dB</option><option value="BW-24">BW 24dB</option><option value="LR-24" selected>LR 24dB</option><option value="LR-48">LR 48dB</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-12 gap-3">
-                    <div class="xl:col-span-5 space-y-3 flex flex-col justify-between">
-                        <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/40 space-y-2 flex-1">
-                            <div class="flex justify-between items-center border-b border-slate-900 pb-1.5 mb-1">
-                                <label class="text-[10px] font-bold text-pink-400 uppercase tracking-tight">Mid High Shelf</label>
-                                <span id="shelf-lbl-2" class="text-pink-400 font-mono text-[10px] font-bold">0dB @ 4.0k</span>
-                            </div>
-                            <div class="space-y-1 text-[9px]">
-                                <div class="text-[8px] text-slate-500 font-mono">Frequency</div>
-                                <input type="range" id="shelf-freq-2" min="1000" max="8000" step="50" value="4000" class="!accent-pink-500">
-                                <div class="text-[8px] text-slate-500 font-mono">Q Factor</div>
-                                <div class="flex items-center gap-1">
-                                    <input type="range" id="shelf-q-2" min="0.1" max="2.0" step="0.05" value="0.7" class="!accent-pink-500 flex-1">
-                                    <span id="shelf-q-lbl-2" class="font-mono text-pink-500 w-6 text-right">0.70</span>
-                                </div>
-                                <div class="text-[8px] text-slate-600 font-mono pt-1">Gain Mid-Shelf (<span id="dvc-lbl-safe-2">Manual</span>)</div>
-                                <input type="range" id="shelf-gain-2" min="-12" max="12" step="0.5" value="0" class="!accent-pink-500">
-                            </div>
-                        </div>
-                        <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/40">
-                            <div class="flex justify-between text-[11px] mb-1">
-                                <span class="text-slate-400">Alignment Delay</span>
-                                <span id="delay-lbl-2" class="text-amber-500 font-bold font-mono">0.0 ms</span>
-                            </div>
-                            <input type="range" id="delay-2" min="0" max="50" step="0.1" value="0" class="accent-amber-500">
-                        </div>
-                    </div>
-
-                    <div class="xl:col-span-7 bg-slate-950/60 p-3 rounded-xl border border-slate-800/40 flex flex-col justify-between">
-                        <h4 class="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5 mb-2">Compressor / Peak Limiter</h4>
-                        <div class="grid grid-cols-2 gap-x-3 gap-y-2 text-slate-400 font-mono text-[9px]">
-                            <div><div>Thresh</div><input type="range" id="comp-t-2" min="-60" max="0" value="0" class="mt-1"><span id="comp-t-lbl-2" class="text-slate-200 block mt-0.5">0 dB</span></div>
-                            <div><div>Ratio</div><input type="range" id="comp-r-2" min="1" max="20" step="0.5" value="1" class="mt-1"><span id="comp-r-lbl-2" class="text-slate-200 block mt-0.5">1.0:1</span></div>
-                            <div><div>Attack</div><input type="range" id="comp-a-2" min="1" max="100" value="30" class="mt-1"><span id="comp-a-lbl-2" class="text-slate-200 block mt-0.5">30 ms</span></div>
-                            <div><div>Release</div><input type="range" id="comp-v-2" min="50" max="1000" step="10" value="200" class="mt-1"><span id="comp-v-lbl-2" class="text-slate-200 block mt-0.5">200 ms</span></div>
-                            <div class="col-span-2 border-t border-slate-900 pt-2 mt-1">
-                                <div class="text-emerald-400 font-medium flex justify-between"><span>Peak Limit Threshold</span> <span id="limit-t-lbl-2" class="font-bold">0.0 dB</span></div>
-                                <input type="range" id="limit-t-2" min="-20" max="0" step="0.5" value="0" class="mt-1 !accent-emerald-500">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-                    <div class="flex justify-between items-center border-b border-slate-900 pb-1.5 mb-2">
-                        <h4 class="text-[10px] font-bold text-slate-500 tracking-wider uppercase">15-Band Parametric Equalizer</h4>
-                        <div class="flex gap-2">
-                            <button id="eq-bypass-2" onclick="toggleEQBypass(2)" class="text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded font-medium transition">BYPASS OFF</button>
-                            <button onclick="resetEQ(2)" class="text-[9px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-800 font-medium transition">RESET</button>
-                        </div>
-                    </div>
-                    <div class="space-y-1.5 max-h-36 overflow-y-auto eq-scroll pr-1.5 pt-1">
-                        <script>generateEQControls(2);</script>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- FOOTER DENGAN TOMBOL LINK LUAR MANDIRI -->
-        <footer class="flex flex-col items-center justify-center text-center text-slate-600 text-[10px] font-mono pt-4 border-t border-slate-900/60 pb-4">
-             <div>AUDIO LOGIC DP 220  |  Audio Processing Engine • Powered by DW PROJECT</div>
-             
-             <!-- MASUKKAN URL PANDUAN LUAR ANDA PADA ATRIBUT href DI BAWAH INI -->
-             <a href="https://userguidedsp.netlify.app/" target="_blank" rel="noopener noreferrer" id="guide-footer-btn">
-                <span class="text-red-500 font-extrabold text-sm font-sans">?</span> PANDUAN DLMS
-             </a>
-        </footer>
-    </div>
-
-    <!-- REENGINEERED JAVASCRIPT AUDIO ENGINE -->
-    <script>
-        const chartFreqs = ['20Hz', '50Hz', '100Hz', '200Hz', '500Hz', '1kHz', '2kHz', '5kHz', '10kHz', '16kHz'];
-        const eqFrequencies = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
-        
-        Chart.defaults.color = '#64748b';
-        Chart.defaults.font.family = 'JetBrains Mono, monospace';
-        Chart.defaults.font.size = 9;
-
-        const ctx = document.getElementById('dlmsCoreChart').getContext('2d');
-        const coreChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartFreqs,
-                datasets: [
-                    { label: 'SUB', data: new Array(10).fill(10), borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.05)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'HI', data: new Array(10).fill(10), borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.05)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 }
-                ]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                scales: { 
-                    y: { min: -5, max: 15, display: true, grid: { color: '#1e293b' }, ticks: { padding: 5 } }, 
-                    x: { grid: { color: '#1e293b' }, ticks: { padding: 5 } } 
-                }, 
-                plugins: { legend: { display: false } },
-                animation: { duration: 150 }
-            }
-        });
-
-        const spectrumCanvas = document.getElementById('spectrumCanvas');
-        const ctxSpectrum = spectrumCanvas.getContext('2d');
-
-        let audioCtx, audioSource, masterGainNode, channelSplitter, analyserNode, outputMerger;
-        let routingGains = { ch1_L: null, ch1_R: null, ch2_L: null, ch2_R: null };
-        let outRoutingGains = { ch1_to_L: null, ch1_to_R: null, ch2_to_L: null, ch2_to_R: null };
-        let outRouting = { ch1: 'L', ch2: 'R' }; 
-        let analyserCh1, analyserCh2;
-        let filters = { 
-            ch1_hpf: [], ch1_lpf: [], ch1_eq: [], ch1_shelf: null,
-            ch2_hpf: [], ch2_lpf: [], ch2_eq: [], ch2_shelf: null 
-        };
-        let compressors = { ch1: null, ch2: null };
-        let limiters = { ch1: null, ch2: null };
-        let delays = { ch1: null, ch2: null };
-        let gains = { ch1: null, ch2: null };
-        let mutes = { ch1: false, ch2: false };
-        let phases = { ch1: false, ch2: false }; 
-        let dvcEnabled = true;
-        let eqBypassed = { ch1: false, ch2: false };
-
-        const audioEl = document.getElementById('realAudio');
-        const fileInput = document.getElementById('audioFile');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const seekSlider = document.getElementById('seekSlider');
-        const currentTimeDisplay = document.getElementById('currentTimeDisplay');
-        const durationDisplay = document.getElementById('durationDisplay');
-
-        function formatTime(seconds) {
-            if (isNaN(seconds)) return "0:00";
-            const m = Math.floor(seconds / 60);
-            const s = Math.floor(seconds % 60);
-            return `${m}:${s < 10 ? '0' : ''}${s}`;
+            `);
         }
 
-        playPauseBtn.addEventListener('click', () => {
-            if (!audioEl.src) return;
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            
-            if (audioEl.paused) {
-                audioEl.play();
-                playPauseBtn.innerText = "PAUSE";
-                playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
-            } else {
-                audioEl.pause();
-                playPauseBtn.innerText = "PLAY";
-                playPauseBtn.className = "bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
-            }
-        });
-
-        audioEl.addEventListener('loadedmetadata', () => {
-            seekSlider.max = audioEl.duration;
-            durationDisplay.innerText = formatTime(audioEl.duration);
-        });
-
-        audioEl.addEventListener('timeupdate', () => {
-            if (!seekSlider.matches(':active')) seekSlider.value = audioEl.currentTime;
-            currentTimeDisplay.innerText = formatTime(audioEl.currentTime);
-        });
-
-        seekSlider.addEventListener('input', () => { audioEl.currentTime = seekSlider.value; });
-        audioEl.addEventListener('ended', () => {
-            playPauseBtn.innerText = "PLAY";
-            playPauseBtn.className = "bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
-        });
-
-        function initAudioEngine() {
-            if (audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioSource = audioCtx.createMediaElementSource(audioEl);
-            masterGainNode = audioCtx.createGain();
-            analyserNode = audioCtx.createAnalyser();
-            
-            analyserNode.fftSize = 16384; 
-            analyserNode.smoothingTimeConstant = 0.75;
-            channelSplitter = audioCtx.createChannelSplitter(2);
-            outputMerger = audioCtx.createChannelMerger(2);
-            
-            routingGains.ch1_L = audioCtx.createGain(); routingGains.ch1_R = audioCtx.createGain();
-            routingGains.ch2_L = audioCtx.createGain(); routingGains.ch2_R = audioCtx.createGain();
-
-            outRoutingGains.ch1_to_L = audioCtx.createGain(); outRoutingGains.ch1_to_R = audioCtx.createGain();
-            outRoutingGains.ch2_to_L = audioCtx.createGain(); outRoutingGains.ch2_to_R = audioCtx.createGain();
-
-            let ch1InputSum = audioCtx.createGain(); let ch2InputSum = audioCtx.createGain();
-            analyserCh1 = audioCtx.createAnalyser(); analyserCh1.fftSize = 64;
-            analyserCh2 = audioCtx.createAnalyser(); analyserCh2.fftSize = 64;
-            
-            for(let i=0; i<4; i++) {
-                let hpf1 = audioCtx.createBiquadFilter(); hpf1.type = 'highpass'; filters.ch1_hpf.push(hpf1);
-                let lpf1 = audioCtx.createBiquadFilter(); lpf1.type = 'lowpass';  filters.ch1_lpf.push(lpf1);
-                let hpf2 = audioCtx.createBiquadFilter(); hpf2.type = 'highpass'; filters.ch2_hpf.push(hpf2);
-                let lpf2 = audioCtx.createBiquadFilter(); lpf2.type = 'lowpass';  filters.ch2_lpf.push(lpf2);
-            }
-            
-            filters.ch1_shelf = audioCtx.createBiquadFilter(); filters.ch1_shelf.type = 'lowshelf'; 
-            filters.ch2_shelf = audioCtx.createBiquadFilter(); filters.ch2_shelf.type = 'highshelf'; 
-
-            compressors.ch1 = audioCtx.createDynamicsCompressor(); compressors.ch2 = audioCtx.createDynamicsCompressor();
-            limiters.ch1 = audioCtx.createDynamicsCompressor(); limiters.ch2 = audioCtx.createDynamicsCompressor();
-
-            limiters.ch1.ratio.setValueAtTime(20, audioCtx.currentTime); limiters.ch1.attack.setValueAtTime(0.001, audioCtx.currentTime); limiters.ch1.release.setValueAtTime(0.05, audioCtx.currentTime);
-            limiters.ch2.ratio.setValueAtTime(20, audioCtx.currentTime); limiters.ch2.attack.setValueAtTime(0.001, audioCtx.currentTime); limiters.ch2.release.setValueAtTime(0.05, audioCtx.currentTime);
-
-            delays.ch1 = audioCtx.createDelay(1.0); delays.ch2 = audioCtx.createDelay(1.0);
-            
-            for (let i = 0; i < 15; i++) {
-                let f1 = audioCtx.createBiquadFilter(); f1.type = 'peaking'; f1.frequency.value = eqFrequencies[i]; f1.gain.value = 0; f1.Q.value = 2.0; filters.ch1_eq.push(f1);
-                let f2 = audioCtx.createBiquadFilter(); f2.type = 'peaking'; f2.frequency.value = eqFrequencies[i]; f2.gain.value = 0; f2.Q.value = 2.0; filters.ch2_eq.push(f2);
-            }
-
-            gains.ch1 = audioCtx.createGain(); gains.ch2 = audioCtx.createGain();
-            audioSource.connect(analyserNode); analyserNode.connect(masterGainNode); masterGainNode.connect(channelSplitter);
-
-            channelSplitter.connect(routingGains.ch1_L, 0); channelSplitter.connect(routingGains.ch1_R, 1); 
-            routingGains.ch1_L.connect(ch1InputSum); routingGains.ch1_R.connect(ch1InputSum);
-            channelSplitter.connect(routingGains.ch2_L, 0); channelSplitter.connect(routingGains.ch2_R, 1); 
-            routingGains.ch2_L.connect(ch2InputSum); routingGains.ch2_R.connect(ch2InputSum);
-
-            let nodeCh1 = ch1InputSum;
-            filters.ch1_hpf.forEach(f => { nodeCh1.connect(f); nodeCh1 = f; });
-            filters.ch1_lpf.forEach(f => { nodeCh1.connect(f); nodeCh1 = f; });
-            filters.ch1_eq.forEach(f =>  { nodeCh1.connect(f); nodeCh1 = f; });
-            nodeCh1.connect(filters.ch1_shelf); filters.ch1_shelf.connect(compressors.ch1); compressors.ch1.connect(limiters.ch1);
-            limiters.ch1.connect(delays.ch1); delays.ch1.connect(gains.ch1); gains.ch1.connect(analyserCh1);
-            
-            analyserCh1.connect(outRoutingGains.ch1_to_L);
-            analyserCh1.connect(outRoutingGains.ch1_to_R);
-            outRoutingGains.ch1_to_L.connect(outputMerger, 0, 0);
-            outRoutingGains.ch1_to_R.connect(outputMerger, 0, 1);
-
-            let nodeCh2 = ch2InputSum;
-            filters.ch2_hpf.forEach(f => { nodeCh2.connect(f); nodeCh2 = f; });
-            filters.ch2_lpf.forEach(f => { nodeCh2.connect(f); nodeCh2 = f; });
-            filters.ch2_eq.forEach(f =>  { nodeCh2.connect(f); nodeCh2 = f; });
-            nodeCh2.connect(filters.ch2_shelf); filters.ch2_shelf.connect(compressors.ch2); compressors.ch2.connect(limiters.ch2);
-            limiters.ch2.connect(delays.ch2); delays.ch2.connect(gains.ch2); gains.ch2.connect(analyserCh2);
-            
-            analyserCh2.connect(outRoutingGains.ch2_to_L);
-            analyserCh2.connect(outRoutingGains.ch2_to_R);
-            outRoutingGains.ch2_to_L.connect(outputMerger, 0, 0);
-            outRoutingGains.ch2_to_R.connect(outputMerger, 0, 1);
-
-            outputMerger.connect(audioCtx.destination);
-
-            drawHardwareVUMeters(); drawRealTimeSpectrum(); updateHardwareDSP();
-        }
-
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                initAudioEngine(); audioEl.src = URL.createObjectURL(file);
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                audioEl.play();
-                playPauseBtn.innerText = "PAUSE";
-                playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
-            }
-        });
-
-        /* --- FUNGSI EXTRACTOR ANDROID BRIDGE & PLAYBACK YOUTUBE --- */
-        function sendUrlToAndroid() {
-            const url = document.getElementById('ytUrlInput').value;
-            if (!url) return alert('Masukkan link YouTube terlebih dahulu!');
-
-            if (window.AndroidBridge) {
-                document.getElementById('extractYtBtn').innerText = "EXTRACTING...";
-                window.AndroidBridge.extractYouTubeAudio(url);
-            } else {
-                alert("Fitur ekstraksi hanya berfungsi di dalam aplikasi Android.");
-            }
-        }
-
-        function onAudioExtracted(audioUrl) {
-            document.getElementById('extractYtBtn').innerText = "EXTRACT";
-            initAudioEngine(); 
-            audioEl.src = audioUrl;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            audioEl.play();
-            playPauseBtn.innerText = "PAUSE";
-            playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
-        }
-
-        function onExtractionFailed(errorMsg) {
-            document.getElementById('extractYtBtn').innerText = "EXTRACT";
-            alert("Ekstraksi Gagal: " + errorMsg);
-        }
-
-        function toggleDVC() {
-            dvcEnabled = !dvcEnabled;
-            const badge = document.getElementById('dvcBadge'); const btn = document.getElementById('dvcToggleBtn');
-            if (dvcEnabled) {
-                badge.innerText = "DVC ACTIVE"; badge.className = "text-[8px] text-emerald-400 bg-emerald-950/30 px-1 py-0.2 rounded border border-emerald-900/50 font-bold";
-                btn.innerText = "BYPASS"; btn.className = "text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-medium px-1.5 py-0.2 rounded border border-slate-700 transition";
-                document.getElementById('dvc-lbl-pow-1').innerText = "DVC Engine"; document.getElementById('dvc-lbl-pow-2').innerText = "DVC Engine";
-                document.getElementById('dvc-lbl-safe-1').innerText = "Safe"; document.getElementById('dvc-lbl-safe-2').innerText = "Safe";
-            } else {
-                badge.innerText = "DVC BYPASS"; badge.className = "text-[8px] text-red-400 bg-red-950/30 px-1 py-0.2 rounded border border-red-900/50 font-bold";
-                btn.innerText = "ACTIVE"; btn.className = "text-[9px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-1.5 py-0.2 rounded border border-emerald-500 transition";
-                document.getElementById('dvc-lbl-pow-1').innerText = "Direct Fader"; document.getElementById('dvc-lbl-pow-2').innerText = "Direct Fader";
-                document.getElementById('dvc-lbl-safe-1').innerText = "Manual"; document.getElementById('dvc-lbl-safe-2').innerText = "Manual";
-            }
-            updateHardwareDSP();
-        }
-
-        function toggleEQBypass(ch) {
-            eqBypassed[`ch${ch}`] = !eqBypassed[`ch${ch}`];
-            const btn = document.getElementById(`eq-bypass-${ch}`);
-            if (eqBypassed[`ch${ch}`]) {
-                btn.innerText = "BYPASS ON";
-                btn.className = "text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded font-medium transition";
-            } else {
-                btn.innerText = "BYPASS OFF";
-                btn.className = "text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded font-medium transition";
-            }
-            updateHardwareDSP();
-        }
-
-        function setChannelRoute(ch, mode) {
-            const select = document.getElementById(`route-ch${ch}`);
-            if (select) { select.value = mode; updateHardwareDSP(); }
-        }
-
-        function setOutRoute(ch, mode) {
-            outRouting[`ch${ch}`] = mode;
-            updateHardwareDSP();
-        }
-
-        function updateRouteUI(ch, mode) {
-            const modes = ['LEFT', 'RIGHT', 'MONO', 'MUTE'];
-            const chColorClass = ch === 1 ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/50" : "bg-pink-500/20 text-pink-400 border-pink-500/50";
-            const activeClass = (m) => m === 'MUTE' ? "bg-red-500/20 text-red-400 border-red-500/40 font-bold" : `${chColorClass} font-bold`;
-            const inactiveClass = "bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-300 font-medium";
-
-            modes.forEach(m => {
-                const btn = document.getElementById(`rt-${ch}-${m}`);
-                if (btn) btn.className = `px-1.5 py-0.5 rounded font-mono text-[9px] border transition-all duration-100 ${m === mode ? activeClass(m) : inactiveClass}`;
-            });
-        }
-
-        function updateOutRouteUI(ch, mode) {
-            const modes = ['L', 'R'];
-            const activeClass = ch === 1 ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/50 font-bold" : "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 font-bold";
-            const inactiveClass = "bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-300 font-medium";
-
-            modes.forEach(m => {
-                const btn = document.getElementById(`out-${ch}-${m}`);
-                if (btn) btn.className = `px-1.5 py-0.5 rounded font-mono text-[9px] border transition-all duration-100 ${m === mode ? activeClass : inactiveClass}`;
-            });
-        }
-
-        function updateHardwareDSP() {
-            const hpf1 = parseFloat(document.getElementById('hpf-1').value); const lpf1 = parseFloat(document.getElementById('lpf-1').value);
-            const hpf2 = parseFloat(document.getElementById('hpf-2').value); const lpf2 = parseFloat(document.getElementById('lpf-2').value);
-            const slopeHpf1 = document.getElementById('hpf-slope-1').value; const slopeLpf1 = document.getElementById('lpf-slope-1').value;
-            const slopeHpf2 = document.getElementById('hpf-slope-2').value; const slopeLpf2 = document.getElementById('lpf-slope-2').value;
-
-            const shelfFreq1 = parseFloat(document.getElementById('shelf-freq-1').value); const shelfGain1 = parseFloat(document.getElementById('shelf-gain-1').value); const shelfQ1 = parseFloat(document.getElementById('shelf-q-1').value);
-            const shelfFreq2 = parseFloat(document.getElementById('shelf-freq-2').value); const shelfGain2 = parseFloat(document.getElementById('shelf-gain-2').value); const shelfQ2 = parseFloat(document.getElementById('shelf-q-2').value);
-
-            const delay1 = parseFloat(document.getElementById('delay-1').value); const delay2 = parseFloat(document.getElementById('delay-2').value);
-            const vol1 = parseFloat(document.getElementById('vol-ch1').value); const vol2 = parseFloat(document.getElementById('vol-ch2').value);
-
-            const compT1 = parseFloat(document.getElementById('comp-t-1').value); const compR1 = parseFloat(document.getElementById('comp-r-1').value);
-            const compA1 = parseFloat(document.getElementById('comp-a-1').value); const compV1 = parseFloat(document.getElementById('comp-v-1').value);
-            const limitT1 = parseFloat(document.getElementById('limit-t-1').value);
-            const compT2 = parseFloat(document.getElementById('comp-t-2').value); const compR2 = parseFloat(document.getElementById('comp-r-2').value);
-            const compA2 = parseFloat(document.getElementById('comp-a-2').value); const compV2 = parseFloat(document.getElementById('comp-v-2').value);
-            const limitT2 = parseFloat(document.getElementById('limit-t-2').value);
-
-            const routeCh1 = document.getElementById('route-ch1').value; const routeCh2 = document.getElementById('route-ch2').value;
-
-            updateRouteUI(1, routeCh1); updateRouteUI(2, routeCh2);
-            updateOutRouteUI(1, outRouting.ch1); updateOutRouteUI(2, outRouting.ch2);
-
-            document.getElementById('hpf-lbl-1').innerText = hpf1 + " Hz"; document.getElementById('lpf-lbl-1').innerText = lpf1 + " Hz";
-            document.getElementById('hpf-lbl-2').innerText = hpf2 >= 1000 ? (hpf2/1000).toFixed(0) + " kHz" : hpf2 + " Hz";
-            document.getElementById('lpf-lbl-2').innerText = lpf2 >= 1000 ? (lpf2/1000).toFixed(0) + " kHz" : lpf2 + " Hz";
-            
-            document.getElementById('shelf-lbl-1').innerText = (shelfGain1 > 0 ? "+" : "") + shelfGain1.toFixed(1) + "dB @ " + shelfFreq1 + "Hz";
-            document.getElementById('shelf-q-lbl-1').innerText = shelfQ1.toFixed(2);
-            document.getElementById('shelf-lbl-2').innerText = (shelfGain2 > 0 ? "+" : "") + shelfGain2.toFixed(1) + "dB @ " + (shelfFreq2 / 1000).toFixed(1) + "k";
-            document.getElementById('shelf-q-lbl-2').innerText = shelfQ2.toFixed(2);
-
-            document.getElementById('delay-lbl-1').innerText = delay1.toFixed(1) + " ms"; document.getElementById('delay-lbl-2').innerText = delay2.toFixed(1) + " ms";
-            document.getElementById('vol-lbl-1').innerText = Math.round(vol1 * 100) + "%"; document.getElementById('vol-lbl-2').innerText = Math.round(vol2 * 100) + "%";
-
-            document.getElementById('comp-t-lbl-1').innerText = compT1 + " dB"; document.getElementById('comp-r-lbl-1').innerText = compR1.toFixed(1) + ":1";
-            document.getElementById('comp-a-lbl-1').innerText = compA1 + " ms"; document.getElementById('comp-v-lbl-1').innerText = compV1 + " ms";
-            document.getElementById('limit-t-lbl-1').innerText = limitT1 + " dB";
-            document.getElementById('comp-t-lbl-2').innerText = compT2 + " dB"; document.getElementById('comp-r-lbl-2').innerText = compR2.toFixed(1) + ":1";
-            document.getElementById('comp-a-lbl-2').innerText = compA2 + " ms"; document.getElementById('comp-v-lbl-2').innerText = compV2 + " ms";
-            document.getElementById('limit-t-lbl-2').innerText = limitT2 + " dB";
-
-            for(let i=0; i<15; i++) {
-                const g1 = parseFloat(document.getElementById(`eq-1-${i}`).value); const g2 = parseFloat(document.getElementById(`eq-2-${i}`).value);
-                document.getElementById(`eq-lbl-1-${i}`).innerText = (g1 > 0 ? "+" : "") + g1 + "dB";
-                document.getElementById(`eq-lbl-2-${i}`).innerText = (g2 > 0 ? "+" : "") + g2 + "dB";
-            }
-
-            let protectedVol1 = vol1; let protectedVol2 = vol2;
-            let dynamicLimit1 = limitT1; let dynamicLimit2 = limitT2;
-            let dynamicCompT1 = compT1; let dynamicCompT2 = compT2;
-            let dynamicCompR1 = compR1; let dynamicCompR2 = compR2;
-
-            if (dvcEnabled) {
-                if (shelfGain1 > 0) {
-                    let attenuationDb = -shelfGain1 * 0.35; protectedVol1 = vol1 * Math.pow(10, attenuationDb / 20); 
-                    dynamicLimit1 = Math.min(limitT1, -shelfGain1 * 0.25); dynamicCompT1 = Math.min(compT1, -12 - (shelfGain1 * 0.5)); dynamicCompR1 = Math.max(compR1, 4.0 + (shelfGain1 * 0.2)); 
-                }
-                if (shelfGain2 > 0) {
-                    let attenuationDb = -shelfGain2 * 0.35; protectedVol2 = vol2 * Math.pow(10, attenuationDb / 20); 
-                    dynamicLimit2 = Math.min(limitT2, -shelfGain2 * 0.25); dynamicCompT2 = Math.min(compT2, -12 - (shelfGain2 * 0.5)); dynamicCompR2 = Math.max(compR2, 4.0 + (shelfGain2 * 0.2)); 
-                }
-            }
-
-            if (!audioCtx) return;
-
-            // Input Routing Logic
-            const applyRouteValue = (gL, gR, route) => {
-                if (route === "MONO") { gL.gain.setValueAtTime(0.707, audioCtx.currentTime); gR.gain.setValueAtTime(0.707, audioCtx.currentTime); }
-                else if (route === "LEFT") { gL.gain.setValueAtTime(1.0, audioCtx.currentTime); gR.gain.setValueAtTime(0.0, audioCtx.currentTime); }
-                else if (route === "RIGHT") { gL.gain.setValueAtTime(0.0, audioCtx.currentTime); gR.gain.setValueAtTime(1.0, audioCtx.currentTime); }
-                else { gL.gain.setValueAtTime(0.0, audioCtx.currentTime); gR.gain.setValueAtTime(0.0, audioCtx.currentTime); }
-            };
-            applyRouteValue(routingGains.ch1_L, routingGains.ch1_R, routeCh1);
-            applyRouteValue(routingGains.ch2_L, routingGains.ch2_R, routeCh2);
-
-            // Output Routing Matrix Logic
-            const applyOutRouting = (gOutL, gOutR, mode) => {
-                if (mode === 'L') { gOutL.gain.setValueAtTime(1.0, audioCtx.currentTime); gOutR.gain.setValueAtTime(0.0, audioCtx.currentTime); }
-                else if (mode === 'R') { gOutL.gain.setValueAtTime(0.0, audioCtx.currentTime); gOutR.gain.setValueAtTime(1.0, audioCtx.currentTime); }
-            };
-            applyOutRouting(outRoutingGains.ch1_to_L, outRoutingGains.ch1_to_R, outRouting.ch1);
-            applyOutRouting(outRoutingGains.ch2_to_L, outRoutingGains.ch2_to_R, outRouting.ch2);
-
-            applyCascadedFilters(filters.ch1_hpf, hpf1, slopeHpf1, 'highpass'); applyCascadedFilters(filters.ch1_lpf, lpf1, slopeLpf1, 'lowpass');
-            applyCascadedFilters(filters.ch2_hpf, hpf2, slopeHpf2, 'highpass'); applyCascadedFilters(filters.ch2_lpf, lpf2, slopeLpf2, 'lowpass');
-
-            filters.ch1_shelf.frequency.setValueAtTime(shelfFreq1, audioCtx.currentTime); filters.ch1_shelf.gain.setValueAtTime(shelfGain1, audioCtx.currentTime); filters.ch1_shelf.Q.setValueAtTime(shelfQ1, audioCtx.currentTime);
-            filters.ch2_shelf.frequency.setValueAtTime(shelfFreq2, audioCtx.currentTime); filters.ch2_shelf.gain.setValueAtTime(shelfGain2, audioCtx.currentTime); filters.ch2_shelf.Q.setValueAtTime(shelfQ2, audioCtx.currentTime);
-
-            delays.ch1.delayTime.setValueAtTime(delay1 / 1000, audioCtx.currentTime); delays.ch2.delayTime.setValueAtTime(delay2 / 1000, audioCtx.currentTime);
-
-            compressors.ch1.threshold.setValueAtTime(dynamicCompT1, audioCtx.currentTime); compressors.ch1.ratio.setValueAtTime(dynamicCompR1, audioCtx.currentTime); compressors.ch1.attack.setValueAtTime(compA1 / 1000, audioCtx.currentTime); compressors.ch1.release.setValueAtTime(compV1 / 1000, audioCtx.currentTime);
-            limiters.ch1.threshold.setValueAtTime(dynamicLimit1, audioCtx.currentTime);
-            compressors.ch2.threshold.setValueAtTime(dynamicCompT2, audioCtx.currentTime); compressors.ch2.ratio.setValueAtTime(dynamicCompR2, audioCtx.currentTime); compressors.ch2.attack.setValueAtTime(compA2 / 1000, audioCtx.currentTime); compressors.ch2.release.setValueAtTime(compV2 / 1000, audioCtx.currentTime);
-            limiters.ch2.threshold.setValueAtTime(dynamicLimit2, audioCtx.currentTime);
-
-            for(let i=0; i<15; i++) {
-                let g1 = eqBypassed.ch1 ? 0 : parseFloat(document.getElementById(`eq-1-${i}`).value);
-                let g2 = eqBypassed.ch2 ? 0 : parseFloat(document.getElementById(`eq-2-${i}`).value);
-                filters.ch1_eq[i].gain.setValueAtTime(g1, audioCtx.currentTime);
-                filters.ch2_eq[i].gain.setValueAtTime(g2, audioCtx.currentTime);
-            }
-
-            let phaseCh1Multiplier = phases.ch1 ? -1 : 1;
-            let phaseCh2Multiplier = phases.ch2 ? -1 : 1;
-
-            if(!mutes.ch1) gains.ch1.gain.setValueAtTime(protectedVol1 * phaseCh1Multiplier, audioCtx.currentTime);
-            else gains.ch1.gain.setValueAtTime(0, audioCtx.currentTime);
-
-            if(!mutes.ch2) gains.ch2.gain.setValueAtTime(protectedVol2 * phaseCh2Multiplier, audioCtx.currentTime);
-            else gains.ch2.gain.setValueAtTime(0, audioCtx.currentTime);
-
-            updateVisualChart(hpf1, lpf1, slopeHpf1, slopeLpf1, hpf2, lpf2, slopeHpf2, slopeLpf2, shelfFreq1, shelfGain1, shelfQ1, shelfFreq2, shelfGain2, shelfQ2);
-        }
-
-        function applyCascadedFilters(filterArray, freq, slopeType, mode) {
-            let activeNodes = 1; let qValue = 0.707;
-            if(slopeType === 'BW-12') { activeNodes = 1; qValue = 0.707; }
-            if(slopeType === 'BW-24') { activeNodes = 2; qValue = 0.707; }
-            if(slopeType === 'LR-24') { activeNodes = 2; qValue = 0.5; }
-            if(slopeType === 'LR-48') { activeNodes = 4; qValue = 0.5; }
-            for(let i=0; i<4; i++) {
-                if(i < activeNodes) {
-                    filterArray[i].frequency.setValueAtTime(freq, audioCtx.currentTime); filterArray[i].Q.setValueAtTime(qValue, audioCtx.currentTime);
-                } else {
-                    filterArray[i].frequency.setValueAtTime(mode === 'highpass' ? 5 : 22000, audioCtx.currentTime);
-                }
-            }
-        }
-
-        function getEqInfluence(f, channel) {
-            if (eqBypassed[`ch${channel}`]) return 0;
-            let totalInfluence = 0;
-            for(let i=0; i<15; i++) {
-                const gain = parseFloat(document.getElementById(`eq-${channel}-${i}`).value); const fc = eqFrequencies[i]; const distance = Math.abs(Math.log10(f / fc));
-                if (distance < 0.25) totalInfluence += gain * (1 - (distance / 0.25));
-            }
-            return totalInfluence;
-        }
-
-        function updateVisualChart(h1, l1, sH1, sL1, h2, l2, sH2, sL2, sf1, sg1, sq1, sf2, sg2, sq2) {
-            const factor = (slope) => (slope === 'BW-12') ? 12 : ((slope === 'BW-24' || slope === 'LR-24') ? 24 : 48);
-            
-            let ch1Data = chartFreqs.map(f => {
-                let val = parseInt(f); if(f.includes('k')) val *= 1000; let baseValue = 10; let shelfContribution = 0;
-                if (val <= sf1) shelfContribution = sg1 * 0.4;
-                else if (val < sf1 * (2 / sq1)) shelfContribution = (sg1 * 0.4) * Math.max(0, 1 - (Math.log10(val / sf1) / Math.log10(2 / sq1)));
-                if(Math.abs(Math.log10(val / sf1)) < 0.15 && sq1 > 1.0) shelfContribution += (sg1 > 0 ? 1 : -1) * (sq1 - 1.0) * 1.5;
-
-                if (val >= h1 && val <= l1) return baseValue + (getEqInfluence(val, 1) / 2) + shelfContribution;
-                if (val < h1) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(h1/val) * factor(sH1)));
-                if (val > l1) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(val/l1) * factor(sL1)));
-                return 0;
-            });
-
-            let ch2Data = chartFreqs.map(f => {
-                let val = parseInt(f); if(f.includes('k')) val *= 1000; let baseValue = 9; let shelfContribution = 0;
-                if (val >= sf2) shelfContribution = sg2 * 0.4;
-                else if (val > sf2 * (sq2 / 2)) shelfContribution = (sg2 * 0.4) * Math.max(0, 1 - (Math.log10(sf2 / val) / Math.log10(2 / sq2)));
-                if(Math.abs(Math.log10(val / sf2)) < 0.15 && sq2 > 1.0) shelfContribution += (sg2 > 0 ? 1 : -1) * (sq2 - 1.0) * 1.5;
-
-                if (val >= h2 && val <= l2) return baseValue + (getEqInfluence(val, 2) / 2) + shelfContribution;
-                if (val < h2) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(h2/val) * factor(sH2)));
-                if (val > l2) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(val/l2) * factor(sL2)));
-                return 0;
-            });
-            coreChart.data.datasets[0].data = ch1Data; coreChart.data.datasets[1].data = ch2Data; coreChart.update('none');
-        }
-
-        function drawRealTimeSpectrum() {
-            requestAnimationFrame(drawRealTimeSpectrum);
-            
-            const dpr = window.devicePixelRatio || 1;
-            const rect = spectrumCanvas.getBoundingClientRect();
-            
-            if (spectrumCanvas.width !== rect.width * dpr || spectrumCanvas.height !== rect.height * dpr) {
-                spectrumCanvas.width = rect.width * dpr;
-                spectrumCanvas.height = rect.height * dpr;
-                ctxSpectrum.scale(dpr, dpr);
-            }
-            
-            const w = rect.width;
-            const h = rect.height;
-            
-            const padLeft = 45;
-            const padBottom = 22;
-            const padTop = 15;
-            const padRight = 15;
-            const graphW = w - padLeft - padRight;
-            const graphH = h - padTop - padBottom;
-
-            ctxSpectrum.fillStyle = '#070a14';
-            ctxSpectrum.fillRect(0, 0, w, h);
-
-            ctxSpectrum.lineWidth = 0.5;
-            ctxSpectrum.strokeStyle = '#1e293b'; 
-            ctxSpectrum.font = '500 7.5px "JetBrains Mono", monospace';
-            ctxSpectrum.fillStyle = '#64748b';
-
-            const minFreq = 20;
-            const maxFreq = 10000;
-            const logMin = Math.log10(minFreq);
-            const logMax = Math.log10(maxFreq);
-
-            const rtaFreqs = [20, 100, 500, 1000, 5000, 10000];
-
-            rtaFreqs.forEach(hz => {
-                let currentX = padLeft + ((Math.log10(hz) - logMin) / (logMax - logMin)) * graphW;
-                
-                ctxSpectrum.beginPath();
-                ctxSpectrum.moveTo(currentX, padTop);
-                ctxSpectrum.lineTo(currentX, padTop + graphH);
-                ctxSpectrum.stroke();
-
-                ctxSpectrum.textAlign = 'center';
-                let labelText = hz >= 1000 ? (hz / 1000) + "kHz" : hz + " Hz";
-                ctxSpectrum.fillText(labelText, currentX, padTop + graphH + 14);
-            });
-
-            const dbTicks = [10, 5, 0, -5, -10];
-            dbTicks.forEach((db, i) => {
-                let currentY = padTop + (i / (dbTicks.length - 1)) * graphH;
-                
-                ctxSpectrum.beginPath();
-                ctxSpectrum.moveTo(padLeft, currentY);
-                ctxSpectrum.lineTo(padLeft + graphW, currentY);
-                ctxSpectrum.stroke();
-
-                ctxSpectrum.textAlign = 'right';
-                ctxSpectrum.fillText(db + " dB", padLeft - 8, currentY + 3);
-            });
-
-            if (audioCtx && !audioEl.paused) {
-                const bufferLength = analyserNode.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-                analyserNode.getByteFrequencyData(dataArray);
-
-                const sampleRate = audioCtx.sampleRate || 48000;
-                let points = [];
-
-                for (let x = 0; x <= graphW; x++) {
-                    let percent = x / graphW;
-                    let freq = Math.pow(10, logMin + percent * (logMax - logMin));
-                    let binIndex = Math.floor(freq * analyserNode.fftSize / sampleRate);
-                    if (binIndex >= bufferLength) binIndex = bufferLength - 1;
-                    
-                    let val = dataArray[binIndex] || 0;
-                    let currentY = padTop + graphH - (val / 255) * graphH;
-                    
-                    currentY = Math.max(padTop, currentY);
-                    points.push({ x: padLeft + x, y: currentY });
-                }
-
-                ctxSpectrum.beginPath();
-                ctxSpectrum.moveTo(padLeft, padTop + graphH);
-                points.forEach(p => ctxSpectrum.lineTo(p.x, p.y));
-                ctxSpectrum.lineTo(padLeft + graphW, padTop + graphH);
-                ctxSpectrum.closePath();
-                
-                let gradient = ctxSpectrum.createLinearGradient(padLeft, padTop, padLeft, padTop + graphH);
-                gradient.addColorStop(0, 'rgba(6, 182, 212, 0.35)'); 
-                gradient.addColorStop(1, 'rgba(99, 102, 241, 0.02)'); 
-                ctxSpectrum.fillStyle = gradient;
-                ctxSpectrum.fill();
-
-                ctxSpectrum.beginPath();
-                points.forEach((p, idx) => {
-                    if (idx === 0) ctxSpectrum.moveTo(p.x, p.y);
-                    else ctxSpectrum.lineTo(p.x, p.y);
-                });
-                ctxSpectrum.lineWidth = 1.5;
-                ctxSpectrum.strokeStyle = '#06b6d4'; 
-                ctxSpectrum.stroke();
-            } else {
-                ctxSpectrum.beginPath();
-                ctxSpectrum.moveTo(padLeft, padTop + graphH);
-                ctxSpectrum.lineTo(padLeft + graphW, padTop + graphH);
-                ctxSpectrum.lineWidth = 1;
-                ctxSpectrum.strokeStyle = 'rgba(6, 182, 212, 0.2)';
-                ctxSpectrum.stroke();
-            }
-        }
-
-        function drawHardwareVUMeters() {
-            requestAnimationFrame(drawHardwareVUMeters);
-            const resetLeds = (ch) => {
-                if (document.getElementById(`vu-sig-bar-${ch}`)) document.getElementById(`vu-sig-bar-${ch}`).style.width = '0%';
-                if (document.getElementById(`vu-gr-bar-${ch}`)) document.getElementById(`vu-gr-bar-${ch}`).style.width = '0%';
-                if (document.getElementById(`db-sig-${ch}`)) document.getElementById(`db-sig-${ch}`).innerText = "-∞ dB";
-                if (document.getElementById(`db-gr-${ch}`)) document.getElementById(`db-gr-${ch}`).innerText = "0.0 dB";
-                if (document.getElementById(`lim-led-${ch}`)) document.getElementById(`lim-led-${ch}`).className = "px-1.5 py-2 rounded text-[9px] font-black bg-slate-900 text-slate-500 border border-slate-800 text-center tracking-tighter";
-            };
-
-            if(!audioCtx || audioEl.paused) { resetLeds(1); resetLeds(2); return; }
-
-            const runChannelVU = (ch, analyser, compressor, limiter, muteStatus) => {
-                if (!muteStatus) {
-                    const data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data);
-                    let avg = data.reduce((a, b) => a + b, 0) / data.length;
-                    let sigPercent = Math.min(100, (avg / 180) * 100);
-                    document.getElementById(`vu-sig-bar-${ch}`).style.width = sigPercent + '%';
-                    document.getElementById(`db-sig-${ch}`).innerText = avg > 0 ? Math.round((avg / 180) * 40 - 40) + " dB" : "-∞ dB";
-
-                    let red = compressor.reduction; if (red && typeof red === 'object') red = red.value;
-                    let grPercent = Math.min(100, (Math.abs(red || 0) / 20) * 100);
-                    document.getElementById(`vu-gr-bar-${ch}`).style.width = grPercent + '%';
-                    document.getElementById(`db-gr-${ch}`).innerText = Math.abs(red || 0).toFixed(1) + " dB";
-
-                    let limRed = limiter.reduction; if (limRed && typeof limRed === 'object') limRed = limRed.value;
-                    document.getElementById(`lim-led-${ch}`).className = Math.abs(limRed || 0) > 0.1 
-                        ? "px-1.5 py-2 rounded text-[9px] font-black bg-red-500 text-white border border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse text-center tracking-tighter"
-                        : "px-1.5 py-2 rounded text-[9px] font-black bg-slate-900 text-slate-500 border border-slate-800 text-center tracking-tighter";
-                } else { resetLeds(ch); }
-            };
-            runChannelVU(1, analyserCh1, compressors.ch1, limiters.ch1, mutes.ch1);
-            runChannelVU(2, analyserCh2, compressors.ch2, limiters.ch2, mutes.ch2);
-        }
-
-        function resetEQ(ch) {
-            for(let i=0; i<15; i++) { if(document.getElementById(`eq-${ch}-${i}`)) document.getElementById(`eq-${ch}-${i}`).value = 0; }
-            document.getElementById(`shelf-gain-${ch}`).value = 0; document.getElementById(`shelf-q-${ch}`).value = 0.7;
-            updateHardwareDSP();
-        }
-
-        function toggleMute(ch) {
-            mutes[`ch${ch}`] = !mutes[`ch${ch}`]; const btn = document.getElementById(`mute-ch${ch}`);
-            if(mutes[`ch${ch}`]) {
-                btn.className = "px-2.5 py-1.5 bg-red-950/80 border border-red-800 text-[10px] font-bold rounded-md text-red-400 shadow-inner min-w-[60px]";
-                btn.innerText = "MUTED";
-            } else {
-                btn.className = "px-2.5 py-1.5 bg-slate-900 text-[10px] font-semibold rounded-md text-slate-300 border border-slate-800 transition min-w-[60px]";
-                btn.innerText = "MUTE";
-            }
-            updateHardwareDSP();
-        }
-
-        function togglePhase(ch) {
-            phases[`ch${ch}`] = !phases[`ch${ch}`]; const btn = document.getElementById(`phase-ch${ch}`);
-            if(phases[`ch${ch}`]) {
-                btn.className = `px-2.5 py-1.5 text-[10px] font-bold rounded-md border transition ${ch === 1 ? 'bg-cyan-950/60 border-cyan-800 text-cyan-400' : 'bg-pink-950/60 border-pink-800 text-pink-400'}`;
-            } else {
-                btn.className = "px-2.5 py-1.5 bg-slate-900 text-[10px] font-semibold rounded-md text-slate-300 border border-slate-800 transition";
-            }
-            updateHardwareDSP();
-        }
-
-        const targetControlIds = [
-            'hpf-1', 'lpf-1', 'hpf-slope-1', 'lpf-slope-1', 'delay-1', 'vol-ch1', 'comp-t-1', 'comp-r-1', 'comp-a-1', 'comp-v-1', 'limit-t-1', 'shelf-freq-1', 'shelf-gain-1', 'shelf-q-1', 'route-ch1',
-            'hpf-2', 'lpf-2', 'hpf-slope-2', 'lpf-slope-2', 'delay-2', 'vol-ch2', 'comp-t-2', 'comp-r-2', 'comp-a-2', 'comp-v-2', 'limit-t-2', 'shelf-freq-2', 'shelf-gain-2', 'shelf-q-2', 'route-ch2'
-        ];
-        for(let i=0; i<15; i++) { targetControlIds.push(`eq-1-${i}`); targetControlIds.push(`eq-2-${i}`); }
-
-        function saveNewPreset() {
-            const name = prompt("Masukkan nama preset:"); if (!name) return;
-            const cleanName = name.replace(/[^a-zA-Z0-9_]/g, "").toUpperCase();
-            let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {}; let dataset = {};
-            targetControlIds.forEach(id => { if (document.getElementById(id)) dataset[id] = document.getElementById(id).value; });
-            presets[cleanName] = dataset; localStorage.setItem('dlms_user_presets', JSON.stringify(presets));
-            reloadPresetDropdown(); document.getElementById('presetSelect').value = cleanName;
-            document.getElementById('lcdPresetName').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>USR: ` + cleanName;
-        }
-
-        function reloadPresetDropdown() {
-            const select = document.getElementById('presetSelect'); select.innerHTML = '<option value="">-- PRESET --</option>';
-            let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {};
-            Object.keys(presets).forEach(pName => {
-                let opt = document.createElement('option'); opt.value = pName; opt.innerText = pName; select.appendChild(opt);
-            });
-        }
-
-        function loadSelectedPreset(presetName) {
-            if (!presetName) { document.getElementById('lcdPresetName').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>`; return; }
-            let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {}; let data = presets[presetName]; if (!data) return;
-            Object.keys(data).forEach(id => { if (document.getElementById(id)) document.getElementById(id).value = data[id]; });
-            document.getElementById('lcdPresetName').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>USR: ` + presetName;
-            updateHardwareDSP();
-        }
-
-        function deletePreset() {
-            const select = document.getElementById('presetSelect'); const name = select.value; if (!name) return;
-            if (confirm(`Hapus preset "${name}"?`)) {
-                let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {}; delete presets[name];
-                localStorage.setItem('dlms_user_presets', JSON.stringify(presets)); reloadPresetDropdown(); updateHardwareDSP();
-                document.getElementById('lcdPresetName').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>`;
-            }
-        }
-
-        document.getElementById('presetSelect').addEventListener('change', (e) => loadSelectedPreset(e.target.value));
-        targetControlIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', updateHardwareDSP);
-        });
-
-        reloadPresetDropdown(); updateHardwareDSP();
-    </script>
+        renderRackChannel(1, "Low / Subwoofer Processor Unit", "cyan");
+        renderRackChannel(2, "High / Mid-Hi Processor Unit", "pink");
+      </script>
+
+      <!-- FOOTER -->
+      <footer class="flex flex-col items-center justify-center text-center text-slate-600 text-[10px] font-mono pt-4 border-t border-slate-900 pb-4">
+           <div>AUDIO LOGIC DSP 220 | Audio Processing Engine • Powered by DW PROJECT</div>
+           <a href="https://userguidedsp.netlify.app/" target="_blank" rel="noopener noreferrer" id="guide-footer-btn">
+              <span class="text-red-500 font-extrabold text-sm font-sans">?</span> PANDUAN DLMS
+           </a>
+      </footer>
+  </div>
+
+  <!-- WEB AUDIO ENGINE & ROTARY LOGIC -->
+  <script>
+      const chartFreqs = ['20Hz', '50Hz', '100Hz', '200Hz', '500Hz', '1kHz', '2kHz', '5kHz', '10kHz', '16kHz'];
+      const eqFrequencies = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
+
+      Chart.defaults.color = '#64748b';
+      Chart.defaults.font.family = 'JetBrains Mono, monospace';
+      Chart.defaults.font.size = 9;
+
+      const ctx = document.getElementById('dlmsCoreChart').getContext('2d');
+      const coreChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+              labels: chartFreqs,
+              datasets: [
+                  { label: 'SUB', data: new Array(10).fill(10), borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.05)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
+                  { label: 'HI', data: new Array(10).fill(10), borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.05)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 }
+              ]
+          },
+          options: { 
+              responsive: true, maintainAspectRatio: false, 
+              scales: { 
+                  y: { min: -5, max: 15, display: true, grid: { color: '#1e293b' }, ticks: { padding: 5 } }, 
+                  x: { grid: { color: '#1e293b' }, ticks: { padding: 5 } } 
+              }, 
+              plugins: { legend: { display: false } }, animation: { duration: 150 }
+          }
+      });
+
+      const spectrumCanvas = document.getElementById('spectrumCanvas');
+      const ctxSpectrum = spectrumCanvas.getContext('2d');
+
+      let audioCtx, audioSource, masterGainNode, channelSplitter, analyserNode, outputMerger;
+      let routingGains = { ch1_L: null, ch1_R: null, ch2_L: null, ch2_R: null };
+      let outRoutingGains = { ch1_to_L: null, ch1_to_R: null, ch2_to_L: null, ch2_to_R: null };
+      let outRouting = { ch1: 'L', ch2: 'R' }; 
+      let analyserCh1, analyserCh2;
+      let filters = { 
+          ch1_hpf: [], ch1_lpf: [], ch1_eq: [], ch1_shelf: null,
+          ch2_hpf: [], ch2_lpf: [], ch2_eq: [], ch2_shelf: null 
+      };
+      let compressors = { ch1: null, ch2: null };
+      let limiters = { ch1: null, ch2: null };
+      let delays = { ch1: null, ch2: null };
+      let gains = { ch1: null, ch2: null };
+      let mutes = { ch1: false, ch2: false };
+      let phases = { ch1: false, ch2: false }; 
+      let dvcEnabled = true;
+      let eqBypassed = { ch1: false, ch2: false };
+
+      const audioEl = document.getElementById('realAudio');
+      const fileInput = document.getElementById('audioFile');
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      const seekSlider = document.getElementById('seekSlider');
+      const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+      const durationDisplay = document.getElementById('durationDisplay');
+
+      function formatTime(seconds) {
+          if (isNaN(seconds)) return "0:00";
+          const m = Math.floor(seconds / 60); const s = Math.floor(seconds % 60);
+          return `${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+
+      playPauseBtn.addEventListener('click', () => {
+          if (!audioEl.src) return;
+          if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+          if (audioEl.paused) {
+              audioEl.play(); playPauseBtn.innerText = "PAUSE";
+              playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
+          } else {
+              audioEl.pause(); playPauseBtn.innerText = "PLAY";
+              playPauseBtn.className = "bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
+          }
+      });
+
+      audioEl.addEventListener('loadedmetadata', () => {
+          seekSlider.max = audioEl.duration; durationDisplay.innerText = formatTime(audioEl.duration);
+      });
+      audioEl.addEventListener('timeupdate', () => {
+          if (!seekSlider.matches(':active')) seekSlider.value = audioEl.currentTime;
+          currentTimeDisplay.innerText = formatTime(audioEl.currentTime);
+      });
+      seekSlider.addEventListener('input', () => { audioEl.currentTime = seekSlider.value; });
+      audioEl.addEventListener('ended', () => {
+          playPauseBtn.innerText = "PLAY";
+          playPauseBtn.className = "bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
+      });
+
+      function initAudioEngine() {
+          if (audioCtx) return;
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          audioSource = audioCtx.createMediaElementSource(audioEl);
+          masterGainNode = audioCtx.createGain(); analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 16384; analyserNode.smoothingTimeConstant = 0.75;
+          channelSplitter = audioCtx.createChannelSplitter(2); outputMerger = audioCtx.createChannelMerger(2);
+          
+          routingGains.ch1_L = audioCtx.createGain(); routingGains.ch1_R = audioCtx.createGain();
+          routingGains.ch2_L = audioCtx.createGain(); routingGains.ch2_R = audioCtx.createGain();
+
+          outRoutingGains.ch1_to_L = audioCtx.createGain(); outRoutingGains.ch1_to_R = audioCtx.createGain();
+          outRoutingGains.ch2_to_L = audioCtx.createGain(); outRoutingGains.ch2_to_R = audioCtx.createGain();
+
+          let ch1InputSum = audioCtx.createGain(); let ch2InputSum = audioCtx.createGain();
+          analyserCh1 = audioCtx.createAnalyser(); analyserCh1.fftSize = 64;
+          analyserCh2 = audioCtx.createAnalyser(); analyserCh2.fftSize = 64;
+          
+          for(let i=0; i<4; i++) {
+              let hpf1 = audioCtx.createBiquadFilter(); hpf1.type = 'highpass'; filters.ch1_hpf.push(hpf1);
+              let lpf1 = audioCtx.createBiquadFilter(); lpf1.type = 'lowpass';  filters.ch1_lpf.push(lpf1);
+              let hpf2 = audioCtx.createBiquadFilter(); hpf2.type = 'highpass'; filters.ch2_hpf.push(hpf2);
+              let lpf2 = audioCtx.createBiquadFilter(); lpf2.type = 'lowpass';  filters.ch2_lpf.push(lpf2);
+          }
+          
+          filters.ch1_shelf = audioCtx.createBiquadFilter(); filters.ch1_shelf.type = 'lowshelf'; 
+          filters.ch2_shelf = audioCtx.createBiquadFilter(); filters.ch2_shelf.type = 'highshelf'; 
+
+          compressors.ch1 = audioCtx.createDynamicsCompressor(); compressors.ch2 = audioCtx.createDynamicsCompressor();
+          limiters.ch1 = audioCtx.createDynamicsCompressor(); limiters.ch2 = audioCtx.createDynamicsCompressor();
+
+          limiters.ch1.ratio.setValueAtTime(20, audioCtx.currentTime); limiters.ch1.attack.setValueAtTime(0.001, audioCtx.currentTime); limiters.ch1.release.setValueAtTime(0.05, audioCtx.currentTime);
+          limiters.ch2.ratio.setValueAtTime(20, audioCtx.currentTime); limiters.ch2.attack.setValueAtTime(0.001, audioCtx.currentTime); limiters.ch2.release.setValueAtTime(0.05, audioCtx.currentTime);
+
+          delays.ch1 = audioCtx.createDelay(1.0); delays.ch2 = audioCtx.createDelay(1.0);
+          
+          for (let i = 0; i < 15; i++) {
+              let f1 = audioCtx.createBiquadFilter(); f1.type = 'peaking'; f1.frequency.value = eqFrequencies[i]; f1.gain.value = 0; f1.Q.value = 2.0; filters.ch1_eq.push(f1);
+              let f2 = audioCtx.createBiquadFilter(); f2.type = 'peaking'; f2.frequency.value = eqFrequencies[i]; f2.gain.value = 0; f2.Q.value = 2.0; filters.ch2_eq.push(f2);
+          }
+
+          gains.ch1 = audioCtx.createGain(); gains.ch2 = audioCtx.createGain();
+          audioSource.connect(analyserNode); analyserNode.connect(masterGainNode); masterGainNode.connect(channelSplitter);
+
+          channelSplitter.connect(routingGains.ch1_L, 0); channelSplitter.connect(routingGains.ch1_R, 1); 
+          routingGains.ch1_L.connect(ch1InputSum); routingGains.ch1_R.connect(ch1InputSum);
+          channelSplitter.connect(routingGains.ch2_L, 0); channelSplitter.connect(routingGains.ch2_R, 1); 
+          routingGains.ch2_L.connect(ch2InputSum); routingGains.ch2_R.connect(ch2InputSum);
+
+          let nodeCh1 = ch1InputSum;
+          filters.ch1_hpf.forEach(f => { nodeCh1.connect(f); nodeCh1 = f; });
+          filters.ch1_lpf.forEach(f => { nodeCh1.connect(f); nodeCh1 = f; });
+          filters.ch1_eq.forEach(f =>  { nodeCh1.connect(f); nodeCh1 = f; });
+          nodeCh1.connect(filters.ch1_shelf); filters.ch1_shelf.connect(compressors.ch1); compressors.ch1.connect(limiters.ch1);
+          limiters.ch1.connect(delays.ch1); delays.ch1.connect(gains.ch1); gains.ch1.connect(analyserCh1);
+          
+          analyserCh1.connect(outRoutingGains.ch1_to_L); analyserCh1.connect(outRoutingGains.ch1_to_R);
+          outRoutingGains.ch1_to_L.connect(outputMerger, 0, 0); outRoutingGains.ch1_to_R.connect(outputMerger, 0, 1);
+
+          let nodeCh2 = ch2InputSum;
+          filters.ch2_hpf.forEach(f => { nodeCh2.connect(f); nodeCh2 = f; });
+          filters.ch2_lpf.forEach(f => { nodeCh2.connect(f); nodeCh2 = f; });
+          filters.ch2_eq.forEach(f =>  { nodeCh2.connect(f); nodeCh2 = f; });
+          nodeCh2.connect(filters.ch2_shelf); filters.ch2_shelf.connect(compressors.ch2); compressors.ch2.connect(limiters.ch2);
+          limiters.ch2.connect(delays.ch2); delays.ch2.connect(gains.ch2); gains.ch2.connect(analyserCh2);
+          
+          analyserCh2.connect(outRoutingGains.ch2_to_L); analyserCh2.connect(outRoutingGains.ch2_to_R);
+          outRoutingGains.ch2_to_L.connect(outputMerger, 0, 0); outRoutingGains.ch2_to_R.connect(outputMerger, 0, 1);
+
+          outputMerger.connect(audioCtx.destination);
+          drawHardwareVUMeters(); drawRealTimeSpectrum(); updateHardwareDSP();
+      }
+
+      fileInput.addEventListener('change', function(e) {
+          const file = e.target.files[0];
+          if (file) {
+              initAudioEngine(); audioEl.src = URL.createObjectURL(file);
+              if (audioCtx.state === 'suspended') audioCtx.resume();
+              audioEl.play(); playPauseBtn.innerText = "PAUSE";
+              playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
+          }
+      });
+
+      // ==========================================
+      // JEMBATAN / BRIDGE DENGAN ANDROID
+      // ==========================================
+
+      function sendUrlToAndroid() {
+          const url = document.getElementById('ytUrlInput').value;
+          if (!url) return alert('Masukkan link YouTube terlebih dahulu!');
+          
+          if (window.AndroidBridge && typeof window.AndroidBridge.extractYouTubeAudio === 'function') {
+              document.getElementById('extractYtBtn').innerText = "EXTRACTING...";
+              window.AndroidBridge.extractYouTubeAudio(url);
+          } else { 
+              alert("Fitur ekstraksi tidak terdeteksi atau tidak dijalankan di dalam aplikasi Android."); 
+          }
+      }
+
+      /**
+       * CALLBACK 1: Dipanggil oleh MainActivity Android jika ekstraksi BERHASIL
+       * Contoh pemanggilan dari Android: 
+       * webView.evaluateJavascript("window.onYouTubeAudioReady('" + streamUrl + "')", null);
+       */
+      window.onYouTubeAudioReady = function(streamUrl) {
+          try {
+              // 1. Inisialisasi Audio Engine DSP jika belum berjalan
+              initAudioEngine();
+
+              // 2. Set source audio dari hasil ekstrak
+              audioEl.src = streamUrl;
+
+              // 3. Resume AudioContext Web API jika suspended
+              if (audioCtx && audioCtx.state === 'suspended') {
+                  audioCtx.resume();
+              }
+
+              // 4. Putar Audio
+              audioEl.play().then(() => {
+                  playPauseBtn.innerText = "PAUSE";
+                  playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
+              }).catch(err => {
+                  console.error("Autoplay error:", err);
+              });
+
+          } catch (e) {
+              console.error("Error setting YouTube audio source:", e);
+          } finally {
+              // Reset teks tombol
+              const btn = document.getElementById('extractYtBtn');
+              if (btn) btn.innerText = "EXTRACT";
+          }
+      };
+
+      /**
+       * CALLBACK 2: Dipanggil oleh MainActivity Android jika ekstraksi GAGAL
+       * Contoh pemanggilan dari Android: 
+       * webView.evaluateJavascript("window.onYouTubeAudioFailed('" + errorMessage + "')", null);
+       */
+      window.onYouTubeAudioFailed = function(errorMsg) {
+          alert("Gagal mengesktrak audio YouTube: " + (errorMsg || "Terjadi kesalahan server/network."));
+          const btn = document.getElementById('extractYtBtn');
+          if (btn) btn.innerText = "EXTRACT";
+      };
+
+      function toggleDVC() {
+          dvcEnabled = !dvcEnabled;
+          const badge = document.getElementById('dvcBadge'); const btn = document.getElementById('dvcToggleBtn');
+          if (dvcEnabled) {
+              badge.innerText = "DVC ACTIVE"; badge.className = "text-[8px] text-emerald-400 bg-emerald-950/50 px-1 py-0.5 rounded border border-emerald-900 font-bold";
+              btn.innerText = "BYPASS"; btn.className = "text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-medium px-1.5 py-0.5 rounded border border-slate-700 transition";
+              document.getElementById('dvc-lbl-safe-1').innerText = "Safe"; document.getElementById('dvc-lbl-safe-2').innerText = "Safe";
+          } else {
+              badge.innerText = "DVC BYPASS"; badge.className = "text-[8px] text-red-400 bg-red-950/50 px-1 py-0.5 rounded border border-red-900 font-bold";
+              btn.innerText = "ACTIVE"; btn.className = "text-[9px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-1.5 py-0.5 rounded border border-emerald-500 transition";
+              document.getElementById('dvc-lbl-safe-1').innerText = "Manual"; document.getElementById('dvc-lbl-safe-2').innerText = "Manual";
+          }
+          updateHardwareDSP();
+      }
+
+      function toggleEQBypass(ch) {
+          eqBypassed[`ch${ch}`] = !eqBypassed[`ch${ch}`];
+          const btn = document.getElementById(`eq-bypass-${ch}`);
+          if (eqBypassed[`ch${ch}`]) {
+              btn.innerText = "BYPASS ON"; btn.className = "text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded font-bold transition shadow";
+          } else {
+              btn.innerText = "BYPASS OFF"; btn.className = "text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded font-bold transition shadow";
+          }
+          updateHardwareDSP();
+      }
+
+      function setChannelRoute(ch, mode) {
+          const select = document.getElementById(`route-ch${ch}`);
+          if (select) { select.value = mode; updateHardwareDSP(); }
+      }
+
+      function setOutRoute(ch, mode) {
+          outRouting[`ch${ch}`] = mode; updateHardwareDSP();
+      }
+
+      function updateRouteUI(ch, mode) {
+          const modes = ['LEFT', 'RIGHT', 'MONO', 'MUTE'];
+          const activeClass = (m) => m === 'MUTE' ? "bg-red-500/20 text-red-400 border-red-500/40 font-bold" : "bg-cyan-500/20 text-cyan-400 border-cyan-500/50 font-bold";
+          const inactiveClass = "bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-300 font-medium";
+          modes.forEach(m => {
+              const btn = document.getElementById(`rt-${ch}-${m}`);
+              if (btn) btn.className = `px-1.5 py-0.5 rounded font-mono text-[9px] border transition ${m === mode ? activeClass(m) : inactiveClass}`;
+          });
+      }
+
+      function updateOutRouteUI(ch, mode) {
+          const modes = ['L', 'R'];
+          const activeClass = ch === 1 ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/50 font-bold" : "bg-pink-500/20 text-pink-400 border-pink-500/50 font-bold";
+          const inactiveClass = "bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-300 font-medium";
+          modes.forEach(m => {
+              const btn = document.getElementById(`out-${ch}-${m}`);
+              if (btn) btn.className = `px-1.5 py-0.5 rounded font-mono text-[9px] border transition ${m === mode ? activeClass : inactiveClass}`;
+          });
+      }
+
+      function updateHardwareDSP() {
+          const hpf1 = parseFloat(document.getElementById('hpf-1').value); const lpf1 = parseFloat(document.getElementById('lpf-1').value);
+          const hpf2 = parseFloat(document.getElementById('hpf-2').value); const lpf2 = parseFloat(document.getElementById('lpf-2').value);
+          const slopeHpf1 = document.getElementById('hpf-slope-1').value; const slopeLpf1 = document.getElementById('lpf-slope-1').value;
+          const slopeHpf2 = document.getElementById('hpf-slope-2').value; const slopeLpf2 = document.getElementById('lpf-slope-2').value;
+
+          const shelfFreq1 = parseFloat(document.getElementById('shelf-freq-1').value); const shelfGain1 = parseFloat(document.getElementById('shelf-gain-1').value); const shelfQ1 = parseFloat(document.getElementById('shelf-q-1').value);
+          const shelfFreq2 = parseFloat(document.getElementById('shelf-freq-2').value); const shelfGain2 = parseFloat(document.getElementById('shelf-gain-2').value); const shelfQ2 = parseFloat(document.getElementById('shelf-q-2').value);
+
+          const delay1 = parseFloat(document.getElementById('delay-1').value); const delay2 = parseFloat(document.getElementById('delay-2').value);
+          const vol1 = parseFloat(document.getElementById('vol-ch1').value); const vol2 = parseFloat(document.getElementById('vol-ch2').value);
+
+          const compT1 = parseFloat(document.getElementById('comp-t-1').value); const compR1 = parseFloat(document.getElementById('comp-r-1').value);
+          const compA1 = parseFloat(document.getElementById('comp-a-1').value); const compV1 = parseFloat(document.getElementById('comp-v-1').value);
+          const limitT1 = parseFloat(document.getElementById('limit-t-1').value);
+          const compT2 = parseFloat(document.getElementById('comp-t-2').value); const compR2 = parseFloat(document.getElementById('comp-r-2').value);
+          const compA2 = parseFloat(document.getElementById('comp-a-2').value); const compV2 = parseFloat(document.getElementById('comp-v-2').value);
+          const limitT2 = parseFloat(document.getElementById('limit-t-2').value);
+
+          const routeCh1 = document.getElementById('route-ch1').value; const routeCh2 = document.getElementById('route-ch2').value;
+
+          updateRouteUI(1, routeCh1); updateRouteUI(2, routeCh2);
+          updateOutRouteUI(1, outRouting.ch1); updateOutRouteUI(2, outRouting.ch2);
+
+          document.getElementById('hpf-lbl-1').innerText = hpf1 + " Hz"; document.getElementById('lpf-lbl-1').innerText = lpf1 + " Hz";
+          document.getElementById('hpf-lbl-2').innerText = hpf2 >= 1000 ? (hpf2/1000).toFixed(0) + " kHz" : hpf2 + " Hz";
+          document.getElementById('lpf-lbl-2').innerText = lpf2 >= 1000 ? (lpf2/1000).toFixed(0) + " kHz" : lpf2 + " Hz";
+          
+          document.getElementById('shelf-freq-lbl-1').innerText = shelfFreq1 + " Hz";
+          document.getElementById('shelf-gain-lbl-1').innerText = (shelfGain1 > 0 ? "+" : "") + shelfGain1.toFixed(1) + " dB";
+          document.getElementById('shelf-q-lbl-1').innerText = shelfQ1.toFixed(2);
+
+          document.getElementById('shelf-freq-lbl-2').innerText = shelfFreq2 >= 1000 ? (shelfFreq2 / 1000).toFixed(1) + " kHz" : shelfFreq2 + " Hz";
+          document.getElementById('shelf-gain-lbl-2').innerText = (shelfGain2 > 0 ? "+" : "") + shelfGain2.toFixed(1) + " dB";
+          document.getElementById('shelf-q-lbl-2').innerText = shelfQ2.toFixed(2);
+
+          document.getElementById('delay-lbl-1').innerText = delay1.toFixed(1) + " ms"; document.getElementById('delay-lbl-2').innerText = delay2.toFixed(1) + " ms";
+          
+          const volDb1 = vol1 <= 0 ? "-∞ dB" : (20 * Math.log10(vol1)).toFixed(1) + " dB";
+          const volDb2 = vol2 <= 0 ? "-∞ dB" : (20 * Math.log10(vol2)).toFixed(1) + " dB";
+          document.getElementById('vol-lbl-1').innerText = volDb1; 
+          document.getElementById('vol-lbl-2').innerText = volDb2;
+
+          document.getElementById('comp-t-lbl-1').innerText = compT1 + " dB"; document.getElementById('comp-r-lbl-1').innerText = compR1.toFixed(1) + ":1";
+          document.getElementById('comp-a-lbl-1').innerText = compA1 + " ms"; document.getElementById('comp-v-lbl-1').innerText = compV1 + " ms";
+          document.getElementById('limit-t-lbl-1').innerText = limitT1 + " dB";
+          document.getElementById('comp-t-lbl-2').innerText = compT2 + " dB"; document.getElementById('comp-r-lbl-2').innerText = compR2.toFixed(1) + ":1";
+          document.getElementById('comp-a-lbl-2').innerText = compA2 + " ms"; document.getElementById('comp-v-lbl-2').innerText = compV2 + " ms";
+          document.getElementById('limit-t-lbl-2').innerText = limitT2 + " dB";
+
+          for(let i=0; i<15; i++) {
+              const g1 = parseFloat(document.getElementById(`eq-1-${i}`).value); const g2 = parseFloat(document.getElementById(`eq-2-${i}`).value);
+              if(document.getElementById(`eq-lbl-1-${i}`)) document.getElementById(`eq-lbl-1-${i}`).innerText = g1 > 0 ? `+${g1.toFixed(1)}` : g1.toFixed(1);
+              if(document.getElementById(`eq-lbl-2-${i}`)) document.getElementById(`eq-lbl-2-${i}`).innerText = g2 > 0 ? `+${g2.toFixed(1)}` : g2.toFixed(1);
+          }
+
+          updateKnobRotation('1'); updateKnobRotation('2');
+
+          let protectedVol1 = vol1; let protectedVol2 = vol2;
+          let dynamicLimit1 = limitT1; let dynamicLimit2 = limitT2;
+          let dynamicCompT1 = compT1; let dynamicCompT2 = compT2;
+          let dynamicCompR1 = compR1; let dynamicCompR2 = compR2;
+
+          if (dvcEnabled) {
+              if (shelfGain1 > 0) {
+                  let attenuationDb = -shelfGain1 * 0.35; protectedVol1 = vol1 * Math.pow(10, attenuationDb / 20); 
+                  dynamicLimit1 = Math.min(limitT1, -shelfGain1 * 0.25); dynamicCompT1 = Math.min(compT1, -12 - (shelfGain1 * 0.5)); dynamicCompR1 = Math.max(compR1, 4.0 + (shelfGain1 * 0.2)); 
+              }
+              if (shelfGain2 > 0) {
+                  let attenuationDb = -shelfGain2 * 0.35; protectedVol2 = vol2 * Math.pow(10, attenuationDb / 20); 
+                  dynamicLimit2 = Math.min(limitT2, -shelfGain2 * 0.25); dynamicCompT2 = Math.min(compT2, -12 - (shelfGain2 * 0.5)); dynamicCompR2 = Math.max(compR2, 4.0 + (shelfGain2 * 0.2)); 
+              }
+          }
+
+          if (!audioCtx) return;
+
+          const applyRouteValue = (gL, gR, route) => {
+              if (route === "MONO") { gL.gain.setValueAtTime(0.707, audioCtx.currentTime); gR.gain.setValueAtTime(0.707, audioCtx.currentTime); }
+              else if (route === "LEFT") { gL.gain.setValueAtTime(1.0, audioCtx.currentTime); gR.gain.setValueAtTime(0.0, audioCtx.currentTime); }
+              else if (route === "RIGHT") { gL.gain.setValueAtTime(0.0, audioCtx.currentTime); gR.gain.setValueAtTime(1.0, audioCtx.currentTime); }
+              else { gL.gain.setValueAtTime(0.0, audioCtx.currentTime); gR.gain.setValueAtTime(0.0, audioCtx.currentTime); }
+          };
+          applyRouteValue(routingGains.ch1_L, routingGains.ch1_R, routeCh1);
+          applyRouteValue(routingGains.ch2_L, routingGains.ch2_R, routeCh2);
+
+          const applyOutRouting = (gOutL, gOutR, mode) => {
+              if (mode === 'L') { gOutL.gain.setValueAtTime(1.0, audioCtx.currentTime); gOutR.gain.setValueAtTime(0.0, audioCtx.currentTime); }
+              else if (mode === 'R') { gOutL.gain.setValueAtTime(0.0, audioCtx.currentTime); gOutR.gain.setValueAtTime(1.0, audioCtx.currentTime); }
+          };
+          applyOutRouting(outRoutingGains.ch1_to_L, outRoutingGains.ch1_to_R, outRouting.ch1);
+          applyOutRouting(outRoutingGains.ch2_to_L, outRoutingGains.ch2_to_R, outRouting.ch2);
+
+          applyCascadedFilters(filters.ch1_hpf, hpf1, slopeHpf1, 'highpass'); applyCascadedFilters(filters.ch1_lpf, lpf1, slopeLpf1, 'lowpass');
+          applyCascadedFilters(filters.ch2_hpf, hpf2, slopeHpf2, 'highpass'); applyCascadedFilters(filters.ch2_lpf, lpf2, slopeLpf2, 'lowpass');
+
+          filters.ch1_shelf.frequency.setValueAtTime(shelfFreq1, audioCtx.currentTime); filters.ch1_shelf.gain.setValueAtTime(shelfGain1, audioCtx.currentTime); filters.ch1_shelf.Q.setValueAtTime(shelfQ1, audioCtx.currentTime);
+          filters.ch2_shelf.frequency.setValueAtTime(shelfFreq2, audioCtx.currentTime); filters.ch2_shelf.gain.setValueAtTime(shelfGain2, audioCtx.currentTime); filters.ch2_shelf.Q.setValueAtTime(shelfQ2, audioCtx.currentTime);
+
+          delays.ch1.delayTime.setValueAtTime(delay1 / 1000, audioCtx.currentTime); delays.ch2.delayTime.setValueAtTime(delay2 / 1000, audioCtx.currentTime);
+
+          compressors.ch1.threshold.setValueAtTime(dynamicCompT1, audioCtx.currentTime); compressors.ch1.ratio.setValueAtTime(dynamicCompR1, audioCtx.currentTime); compressors.ch1.attack.setValueAtTime(compA1 / 1000, audioCtx.currentTime); compressors.ch1.release.setValueAtTime(compV1 / 1000, audioCtx.currentTime);
+          limiters.ch1.threshold.setValueAtTime(dynamicLimit1, audioCtx.currentTime);
+          compressors.ch2.threshold.setValueAtTime(dynamicCompT2, audioCtx.currentTime); compressors.ch2.ratio.setValueAtTime(dynamicCompR2, audioCtx.currentTime); compressors.ch2.attack.setValueAtTime(compA2 / 1000, audioCtx.currentTime); compressors.ch2.release.setValueAtTime(compV2 / 1000, audioCtx.currentTime);
+          limiters.ch2.threshold.setValueAtTime(dynamicLimit2, audioCtx.currentTime);
+
+          for(let i=0; i<15; i++) {
+              let g1 = eqBypassed.ch1 ? 0 : parseFloat(document.getElementById(`eq-1-${i}`).value);
+              let g2 = eqBypassed.ch2 ? 0 : parseFloat(document.getElementById(`eq-2-${i}`).value);
+              filters.ch1_eq[i].gain.setValueAtTime(g1, audioCtx.currentTime);
+              filters.ch2_eq[i].gain.setValueAtTime(g2, audioCtx.currentTime);
+          }
+
+          let phaseCh1Multiplier = phases.ch1 ? -1 : 1;
+          let phaseCh2Multiplier = phases.ch2 ? -1 : 1;
+
+          if(!mutes.ch1) gains.ch1.gain.setValueAtTime(protectedVol1 * phaseCh1Multiplier, audioCtx.currentTime);
+          else gains.ch1.gain.setValueAtTime(0, audioCtx.currentTime);
+
+          if(!mutes.ch2) gains.ch2.gain.setValueAtTime(protectedVol2 * phaseCh2Multiplier, audioCtx.currentTime);
+          else gains.ch2.gain.setValueAtTime(0, audioCtx.currentTime);
+
+          updateVisualChart(hpf1, lpf1, slopeHpf1, slopeLpf1, hpf2, lpf2, slopeHpf2, slopeLpf2, shelfFreq1, shelfGain1, shelfQ1, shelfFreq2, shelfGain2, shelfQ2);
+      }
+
+      function setupKnob(containerId, inputId, bodyId) {
+          const container = document.getElementById(containerId);
+          const input = document.getElementById(inputId);
+          const body = document.getElementById(bodyId);
+          if (!container || !input || !body) return;
+
+          let isDragging = false;
+          let startY = 0;
+          let startVal = 0;
+
+          const onMove = (e) => {
+              if (!isDragging) return;
+              const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+              const deltaY = startY - clientY;
+              const min = parseFloat(input.min);
+              const max = parseFloat(input.max);
+              const range = max - min;
+              const valChange = (deltaY / 150) * range;
+              
+              let newVal = Math.min(max, Math.max(min, startVal + valChange));
+              input.value = newVal;
+              updateHardwareDSP();
+          };
+
+          const onEnd = () => { isDragging = false; };
+
+          const onStart = (e) => {
+              isDragging = true;
+              startY = e.touches ? e.touches[0].clientY : e.clientY;
+              startVal = parseFloat(input.value);
+              e.preventDefault();
+          };
+
+          container.addEventListener('mousedown', onStart);
+          container.addEventListener('touchstart', onStart);
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('touchmove', onMove);
+          window.addEventListener('mouseup', onEnd);
+          window.addEventListener('touchend', onEnd);
+      }
+
+      function updateKnobRotation(ch) {
+          const knobKeys = ['vol', 'hpf', 'lpf', 'shelf-freq', 'shelf-q', 'shelf-gain', 'comp-t', 'comp-r', 'comp-a', 'comp-v', 'limit-t', 'delay'];
+          knobKeys.forEach(key => {
+              const inputId = key === 'vol' ? `vol-ch${ch}` : `${key}-${ch}`;
+              const bodyId = key === 'vol' ? `kb-vol-${ch}` : `kb-${key}-${ch}`;
+              const input = document.getElementById(inputId);
+              const body = document.getElementById(bodyId);
+              if (input && body) {
+                  const min = parseFloat(input.min);
+                  const max = parseFloat(input.max);
+                  const val = parseFloat(input.value);
+                  const pct = (val - min) / (max - min);
+                  const deg = -135 + (pct * 270);
+                  body.style.transform = `rotate(${deg}deg)`;
+              }
+          });
+      }
+
+      function applyCascadedFilters(filterArray, freq, slopeType, mode) {
+          let activeNodes = 1; let qValue = 0.707;
+          if(slopeType === 'BW-12') { activeNodes = 1; qValue = 0.707; }
+          if(slopeType === 'BW-24') { activeNodes = 2; qValue = 0.707; }
+          if(slopeType === 'LR-24') { activeNodes = 2; qValue = 0.5; }
+          if(slopeType === 'LR-48') { activeNodes = 4; qValue = 0.5; }
+          for(let i=0; i<4; i++) {
+              if(i < activeNodes) {
+                  filterArray[i].frequency.setValueAtTime(freq, audioCtx.currentTime); filterArray[i].Q.setValueAtTime(qValue, audioCtx.currentTime);
+              } else {
+                  filterArray[i].frequency.setValueAtTime(mode === 'highpass' ? 5 : 22000, audioCtx.currentTime);
+              }
+          }
+      }
+
+      function getEqInfluence(f, channel) {
+          if (eqBypassed[`ch${channel}`]) return 0;
+          let totalInfluence = 0;
+          for(let i=0; i<15; i++) {
+              const gain = parseFloat(document.getElementById(`eq-${channel}-${i}`).value); const fc = eqFrequencies[i]; const distance = Math.abs(Math.log10(f / fc));
+              if (distance < 0.25) totalInfluence += gain * (1 - (distance / 0.25));
+          }
+          return totalInfluence;
+      }
+
+      function updateVisualChart(h1, l1, sH1, sL1, h2, l2, sH2, sL2, sf1, sg1, sq1, sf2, sg2, sq2) {
+          const factor = (slope) => (slope === 'BW-12') ? 12 : ((slope === 'BW-24' || slope === 'LR-24') ? 24 : 48);
+          
+          let ch1Data = chartFreqs.map(f => {
+              let val = parseInt(f); if(f.includes('k')) val *= 1000; let baseValue = 10; let shelfContribution = 0;
+              if (val <= sf1) shelfContribution = sg1 * 0.4;
+              else if (val < sf1 * (2 / sq1)) shelfContribution = (sg1 * 0.4) * Math.max(0, 1 - (Math.log10(val / sf1) / Math.log10(2 / sq1)));
+              if(Math.abs(Math.log10(val / sf1)) < 0.15 && sq1 > 1.0) shelfContribution += (sg1 > 0 ? 1 : -1) * (sq1 - 1.0) * 1.5;
+
+              if (val >= h1 && val <= l1) return baseValue + (getEqInfluence(val, 1) / 2) + shelfContribution;
+              if (val < h1) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(h1/val) * factor(sH1)));
+              if (val > l1) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(val/l1) * factor(sL1)));
+              return 0;
+          });
+
+          let ch2Data = chartFreqs.map(f => {
+              let val = parseInt(f); if(f.includes('k')) val *= 1000; let baseValue = 9; let shelfContribution = 0;
+              if (val >= sf2) shelfContribution = sg2 * 0.4;
+              else if (val > sf2 * (sq2 / 2)) shelfContribution = (sg2 * 0.4) * Math.max(0, 1 - (Math.log10(sf2 / val) / Math.log10(2 / sq2)));
+              if(Math.abs(Math.log10(val / sf2)) < 0.15 && sq2 > 1.0) shelfContribution += (sg2 > 0 ? 1 : -1) * (sq2 - 1.0) * 1.5;
+
+              if (val >= h2 && val <= l2) return baseValue + (getEqInfluence(val, 2) / 2) + shelfContribution;
+              if (val < h2) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(h2/val) * factor(sH2)));
+              if (val > l2) return Math.max(0, (baseValue + shelfContribution) - (Math.log10(val/l2) * factor(sL2)));
+              return 0;
+          });
+          coreChart.data.datasets[0].data = ch1Data; coreChart.data.datasets[1].data = ch2Data; coreChart.update('none');
+      }
+
+      function drawRealTimeSpectrum() {
+          requestAnimationFrame(drawRealTimeSpectrum);
+          const dpr = window.devicePixelRatio || 1;
+          const rect = spectrumCanvas.getBoundingClientRect();
+          if (spectrumCanvas.width !== rect.width * dpr || spectrumCanvas.height !== rect.height * dpr) {
+              spectrumCanvas.width = rect.width * dpr; spectrumCanvas.height = rect.height * dpr;
+              ctxSpectrum.scale(dpr, dpr);
+          }
+          const w = rect.width; const h = rect.height;
+          const padLeft = 45; const padBottom = 22; const padTop = 15; const padRight = 15;
+          const graphW = w - padLeft - padRight; const graphH = h - padTop - padBottom;
+
+          ctxSpectrum.fillStyle = '#070a14'; ctxSpectrum.fillRect(0, 0, w, h);
+          ctxSpectrum.lineWidth = 0.5; ctxSpectrum.strokeStyle = '#1e293b'; 
+          ctxSpectrum.font = '500 7.5px "JetBrains Mono", monospace'; ctxSpectrum.fillStyle = '#64748b';
+
+          const minFreq = 20; const maxFreq = 10000;
+          const logMin = Math.log10(minFreq); const logMax = Math.log10(maxFreq);
+          const rtaFreqs = [20, 100, 500, 1000, 5000, 10000];
+
+          rtaFreqs.forEach(hz => {
+              let currentX = padLeft + ((Math.log10(hz) - logMin) / (logMax - logMin)) * graphW;
+              ctxSpectrum.beginPath(); ctxSpectrum.moveTo(currentX, padTop); ctxSpectrum.lineTo(currentX, padTop + graphH); ctxSpectrum.stroke();
+              ctxSpectrum.textAlign = 'center';
+              let labelText = hz >= 1000 ? (hz / 1000) + "kHz" : hz + " Hz";
+              ctxSpectrum.fillText(labelText, currentX, padTop + graphH + 14);
+          });
+
+          const dbTicks = [10, 5, 0, -5, -10];
+          dbTicks.forEach((db, i) => {
+              let currentY = padTop + (i / (dbTicks.length - 1)) * graphH;
+              ctxSpectrum.beginPath(); ctxSpectrum.moveTo(padLeft, currentY); ctxSpectrum.lineTo(padLeft + graphW, currentY); ctxSpectrum.stroke();
+              ctxSpectrum.textAlign = 'right'; ctxSpectrum.fillText(db + " dB", padLeft - 8, currentY + 3);
+          });
+
+          if (audioCtx && !audioEl.paused) {
+              const bufferLength = analyserNode.frequencyBinCount;
+              const dataArray = new Uint8Array(bufferLength);
+              analyserNode.getByteFrequencyData(dataArray);
+              const sampleRate = audioCtx.sampleRate || 48000;
+              let points = [];
+
+              for (let x = 0; x <= graphW; x++) {
+                  let percent = x / graphW;
+                  let freq = Math.pow(10, logMin + percent * (logMax - logMin));
+                  let binIndex = Math.floor(freq * analyserNode.fftSize / sampleRate);
+                  if (binIndex >= bufferLength) binIndex = bufferLength - 1;
+                  
+                  let val = dataArray[binIndex] || 0;
+                  let currentY = padTop + graphH - (val / 255) * graphH;
+                  currentY = Math.max(padTop, currentY);
+                  points.push({ x: padLeft + x, y: currentY });
+              }
+
+              ctxSpectrum.beginPath(); ctxSpectrum.moveTo(padLeft, padTop + graphH);
+              points.forEach(p => ctxSpectrum.lineTo(p.x, p.y));
+              ctxSpectrum.lineTo(padLeft + graphW, padTop + graphH); ctxSpectrum.closePath();
+              
+              let gradient = ctxSpectrum.createLinearGradient(padLeft, padTop, padLeft, padTop + graphH);
+              gradient.addColorStop(0, 'rgba(6, 182, 212, 0.35)'); gradient.addColorStop(1, 'rgba(99, 102, 241, 0.02)'); 
+              ctxSpectrum.fillStyle = gradient; ctxSpectrum.fill();
+
+              ctxSpectrum.beginPath();
+              points.forEach((p, idx) => {
+                  if (idx === 0) ctxSpectrum.moveTo(p.x, p.y);
+                  else ctxSpectrum.lineTo(p.x, p.y);
+              });
+              ctxSpectrum.lineWidth = 1.5; ctxSpectrum.strokeStyle = '#06b6d4'; ctxSpectrum.stroke();
+          } else {
+              ctxSpectrum.beginPath(); ctxSpectrum.moveTo(padLeft, padTop + graphH);
+              ctxSpectrum.lineTo(padLeft + graphW, padTop + graphH); ctxSpectrum.lineWidth = 1;
+              ctxSpectrum.strokeStyle = 'rgba(6, 182, 212, 0.2)'; ctxSpectrum.stroke();
+          }
+      }
+
+      function drawHardwareVUMeters() {
+          requestAnimationFrame(drawHardwareVUMeters);
+          const resetLeds = (ch) => {
+              if (document.getElementById(`vu-sig-bar-${ch}`)) document.getElementById(`vu-sig-bar-${ch}`).style.width = '0%';
+              if (document.getElementById(`vu-gr-bar-${ch}`)) document.getElementById(`vu-gr-bar-${ch}`).style.width = '0%';
+              if (document.getElementById(`db-sig-${ch}`)) document.getElementById(`db-sig-${ch}`).innerText = "-∞ dB";
+              if (document.getElementById(`db-gr-${ch}`)) document.getElementById(`db-gr-${ch}`).innerText = "0.0 dB";
+              if (document.getElementById(`lim-led-${ch}`)) document.getElementById(`lim-led-${ch}`).className = "px-2 py-3 rounded text-[9px] font-black bg-slate-950 text-slate-600 border border-slate-800 text-center tracking-tighter";
+          };
+
+          if(!audioCtx || audioEl.paused) { resetLeds(1); resetLeds(2); return; }
+
+          const runChannelVU = (ch, analyser, compressor, limiter, muteStatus) => {
+              if (!muteStatus) {
+                  const data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data);
+                  let avg = data.reduce((a, b) => a + b, 0) / data.length;
+                  let sigPercent = Math.min(100, (avg / 180) * 100);
+                  document.getElementById(`vu-sig-bar-${ch}`).style.width = sigPercent + '%';
+                  document.getElementById(`db-sig-${ch}`).innerText = avg > 0 ? Math.round((avg / 180) * 40 - 40) + " dB" : "-∞ dB";
+
+                  let red = compressor.reduction; if (red && typeof red === 'object') red = red.value;
+                  let grPercent = Math.min(100, (Math.abs(red || 0) / 20) * 100);
+                  document.getElementById(`vu-gr-bar-${ch}`).style.width = grPercent + '%';
+                  document.getElementById(`db-gr-${ch}`).innerText = Math.abs(red || 0).toFixed(1) + " dB";
+
+                  let limRed = limiter.reduction; if (limRed && typeof limRed === 'object') limRed = limRed.value;
+                  document.getElementById(`lim-led-${ch}`).className = Math.abs(limRed || 0) > 0.1 
+                      ? "px-2 py-3 rounded text-[9px] font-black bg-red-500 text-white border border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse text-center tracking-tighter"
+                      : "px-2 py-3 rounded text-[9px] font-black bg-slate-950 text-slate-600 border border-slate-800 text-center tracking-tighter";
+              } else { resetLeds(ch); }
+          };
+          runChannelVU(1, analyserCh1, compressors.ch1, limiters.ch1, mutes.ch1);
+          runChannelVU(2, analyserCh2, compressors.ch2, limiters.ch2, mutes.ch2);
+      }
+
+      function resetEQ(ch) {
+          for(let i=0; i<15; i++) { if(document.getElementById(`eq-${ch}-${i}`)) document.getElementById(`eq-${ch}-${i}`).value = 0; }
+          document.getElementById(`shelf-gain-${ch}`).value = 0; document.getElementById(`shelf-q-${ch}`).value = 0.7;
+          updateHardwareDSP();
+      }
+
+      function toggleMute(ch) {
+          mutes[`ch${ch}`] = !mutes[`ch${ch}`]; 
+          const ledEl = document.getElementById(`led-mute-${ch}`);
+          if(mutes[`ch${ch}`]) {
+              ledEl.classList.add('active');
+          } else {
+              ledEl.classList.remove('active');
+          }
+          updateHardwareDSP();
+      }
+
+      function togglePhase(ch) {
+          phases[`ch${ch}`] = !phases[`ch${ch}`]; 
+          const switchEl = document.getElementById(`toggle-switch-phase-${ch}`);
+          const labelEl = document.getElementById(`phase-lbl-${ch}`);
+          if(phases[`ch${ch}`]) {
+              switchEl.classList.add('active');
+              if(labelEl) { labelEl.innerText = "INV"; labelEl.className = "text-[9px] font-extrabold text-amber-500 font-mono mt-0.5"; }
+          } else {
+              switchEl.classList.remove('active');
+              if(labelEl) { labelEl.innerText = "NORM"; labelEl.className = "text-[9px] font-extrabold text-slate-700 font-mono mt-0.5"; }
+          }
+          updateHardwareDSP();
+      }
+
+      const targetControlIds = [
+          'hpf-1', 'lpf-1', 'hpf-slope-1', 'lpf-slope-1', 'delay-1', 'vol-ch1', 'comp-t-1', 'comp-r-1', 'comp-a-1', 'comp-v-1', 'limit-t-1', 'shelf-freq-1', 'shelf-gain-1', 'shelf-q-1', 'route-ch1',
+          'hpf-2', 'lpf-2', 'hpf-slope-2', 'lpf-slope-2', 'delay-2', 'vol-ch2', 'comp-t-2', 'comp-r-2', 'comp-a-2', 'comp-v-2', 'limit-t-2', 'shelf-freq-2', 'shelf-gain-2', 'shelf-q-2', 'route-ch2'
+      ];
+      for(let i=0; i<15; i++) { targetControlIds.push(`eq-1-${i}`); targetControlIds.push(`eq-2-${i}`); }
+
+      function saveNewPreset() {
+          const name = prompt("Masukkan nama preset:"); if (!name) return;
+          const cleanName = name.replace(/[^a-zA-Z0-9_]/g, "").toUpperCase();
+          let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {}; let dataset = {};
+          targetControlIds.forEach(id => { if (document.getElementById(id)) dataset[id] = document.getElementById(id).value; });
+          presets[cleanName] = dataset; localStorage.setItem('dlms_user_presets', JSON.stringify(presets));
+          reloadPresetDropdown(); document.getElementById('presetSelect').value = cleanName;
+          document.getElementById('lcdPresetName').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> USR: ` + cleanName;
+      }
+
+      function reloadPresetDropdown() {
+          const select = document.getElementById('presetSelect'); select.innerHTML = '<option value="">-- PRESET --</option>';
+          let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {};
+          Object.keys(presets).forEach(pName => {
+              let opt = document.createElement('option'); opt.value = pName; opt.innerText = pName; select.appendChild(opt);
+          });
+      }
+
+      function loadSelectedPreset(presetName) {
+          if (!presetName) { document.getElementById('lcdPresetName').innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> SYSTEM READY`; return; }
+          let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {}; let data = presets[presetName]; if (!data) return;
+          Object.keys(data).forEach(id => { if (document.getElementById(id)) document.getElementById(id).value = data[id]; });
+          document.getElementById('lcdPresetName').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> USR: ` + presetName;
+          updateHardwareDSP();
+      }
+
+      function deletePreset() {
+          const select = document.getElementById('presetSelect'); const name = select.value; if (!name) return;
+          if (confirm(`Hapus preset "${name}"?`)) {
+              let presets = JSON.parse(localStorage.getItem('dlms_user_presets')) || {}; delete presets[name];
+              localStorage.setItem('dlms_user_presets', JSON.stringify(presets)); reloadPresetDropdown(); updateHardwareDSP();
+              document.getElementById('lcdPresetName').innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> SYSTEM READY`;
+          }
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+          reloadPresetDropdown();
+          
+          // Binding drag knob handlers
+          [1, 2].forEach(ch => {
+              const knobKeys = ['vol', 'hpf', 'lpf', 'shelf-freq', 'shelf-q', 'shelf-gain', 'comp-t', 'comp-r', 'comp-a', 'comp-v', 'limit-t', 'delay'];
+              knobKeys.forEach(key => {
+                  const inputId = key === 'vol' ? `vol-ch${ch}` : `${key}-${ch}`;
+                  const bodyId = key === 'vol' ? `kb-vol-${ch}` : `kb-${key}-${ch}`;
+                  const containerId = `kc-${key}-${ch}`;
+                  setupKnob(containerId, inputId, bodyId);
+              });
+          });
+
+          updateHardwareDSP();
+      });
+  </script>
 </body>
 </html>
