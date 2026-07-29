@@ -618,308 +618,8 @@
           </div>
       </div>
 
-      <!-- PROCESSOR CHANNELS -->
-      <script>
-        const freqsDisplay = ["25", "40", "63", "100", "160", "250", "400", "630", "1k", "1k6", "2k5", "4k", "6k3", "10k", "16k"];
-        const freqsList = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
-
-        function renderRackChannel(ch, chTitle, themeColor) {
-            const isCh1 = ch === 1;
-            const accentColor = isCh1 ? 'cyan' : 'pink';
-
-            document.write(`
-                <div class="space-y-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 relative">
-                    <!-- CHANNEL HEADER & ROUTING -->
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-slate-800 pb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-lg bg-slate-900 border border-${accentColor}-500/50 flex items-center justify-center text-${accentColor}-400 font-bold font-mono text-base shadow-inner">0${ch}</div>
-                            <div>
-                                <h3 class="text-sm font-black text-white tracking-tight uppercase">${chTitle}</h3>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-900 p-1 rounded border border-slate-800">
-                                        <span class="text-slate-500 font-bold px-1">IN:</span>
-                                        <select id="route-ch${ch}" class="hidden" onchange="updateHardwareDSP()">
-                                            <option value="LEFT">LEFT</option><option value="RIGHT">RIGHT</option><option value="MONO">MONO</option><option value="MUTE">MUTE</option>
-                                        </select>
-                                        <button type="button" id="rt-${ch}-LEFT" onclick="setChannelRoute(${ch}, 'LEFT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN A</button>
-                                        <button type="button" id="rt-${ch}-RIGHT" onclick="setChannelRoute(${ch}, 'RIGHT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN B</button>
-                                        <button type="button" id="rt-${ch}-MONO" onclick="setChannelRoute(${ch}, 'MONO')" class="px-1.5 py-0.5 rounded font-semibold transition">SUM</button>
-                                        <button type="button" id="rt-${ch}-MUTE" onclick="setChannelRoute(${ch}, 'MUTE')" class="px-1.5 py-0.5 rounded font-semibold transition">MUTE</button>
-                                    </div>
-                                    <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-900 p-1 rounded border border-slate-800">
-                                        <span class="text-slate-500 font-bold px-1">OUT:</span>
-                                        <button type="button" id="out-${ch}-L" onclick="setOutRoute(${ch}, 'L')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT L</button>
-                                        <button type="button" id="out-${ch}-R" onclick="setOutRoute(${ch}, 'R')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT R</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- VU METERS & LIMIT LED -->
-                        <div class="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800 w-full lg:w-72">
-                            <span id="lim-led-${ch}" class="px-2 py-3 rounded text-[9px] font-black bg-slate-950 text-slate-600 border border-slate-800 text-center tracking-tighter">LIM</span>
-                            <div class="flex flex-col gap-2 flex-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">SIG</span>
-                                    <div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 relative">
-                                        <div id="vu-sig-bar-${ch}" class="h-full w-0 transition-all duration-75" style="background: linear-gradient(to right, #10b981 65%, #f59e0b 85%, #ef4444 100%);"></div>
-                                    </div>
-                                    <span id="db-sig-${ch}" class="text-slate-400 font-mono text-[9px] w-10 text-right">-∞ dB</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">G.R</span>
-                                    <div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 relative">
-                                        <div id="vu-gr-bar-${ch}" class="h-full w-0 transition-all duration-75 bg-amber-500"></div>
-                                    </div>
-                                    <span id="db-gr-${ch}" class="text-amber-500 font-mono text-[9px] w-10 text-right">0.0 dB</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 1. PRE / XOVER PANEL (GAMBAR 1 DESIGN) -->
-                    <div class="panel-xover">
-                        <div class="screw top-left"></div>
-                        <div class="screw top-right"></div>
-
-                        <div class="xover-header">
-                            <div class="xover-title-group">
-                                <span class="brand">AUDIO LOGIC</span>
-                                <div class="divider"></div>
-                                <span class="main-title">PRE / XOVER CH${ch}</span>
-                            </div>
-                        </div>
-
-                        <div class="xover-controls">
-                            <!-- HPF FREQ -->
-                            <div class="control-item" id="kc-hpf-${ch}">
-                                <span class="control-label">HPF FREQ</span>
-                                <div class="xover-knob" id="kb-hpf-${ch}">
-                                    <div class="pointer-line"></div>
-                                </div>
-                                <input type="range" id="hpf-${ch}" min="${isCh1 ? 20 : 100}" max="${isCh1 ? 200 : 1000}" step="1" value="${isCh1 ? 20 : 100}" class="knob-input">
-                                <span class="control-value" id="hpf-lbl-${ch}">20 Hz</span>
-                            </div>
-
-                            <!-- HPF SLOPE -->
-                            <div class="control-item">
-                                <span class="control-label">HPF SLOPE</span>
-                                <select id="hpf-slope-${ch}" onchange="updateHardwareDSP()" class="slope-select">
-                                    <option value="BW-12">BW 12dB</option>
-                                    <option value="BW-24">BW 24dB</option>
-                                    <option value="LR-24" selected>LR 24dB</option>
-                                    <option value="LR-48">LR 48dB</option>
-                                </select>
-                            </div>
-
-                            <!-- LPF FREQ -->
-                            <div class="control-item" id="kc-lpf-${ch}">
-                                <span class="control-label">LPF FREQ</span>
-                                <div class="xover-knob" id="kb-lpf-${ch}">
-                                    <div class="pointer-line"></div>
-                                </div>
-                                <input type="range" id="lpf-${ch}" min="${isCh1 ? 100 : 2000}" max="${isCh1 ? 500 : 16000}" step="1" value="${isCh1 ? 500 : 16000}" class="knob-input">
-                                <span class="control-value" id="lpf-lbl-${ch}">500 Hz</span>
-                            </div>
-
-                            <!-- LPF SLOPE -->
-                            <div class="control-item">
-                                <span class="control-label">LPF SLOPE</span>
-                                <select id="lpf-slope-${ch}" onchange="updateHardwareDSP()" class="slope-select">
-                                    <option value="BW-12">BW 12dB</option>
-                                    <option value="BW-24">BW 24dB</option>
-                                    <option value="LR-24" selected>LR 24dB</option>
-                                    <option value="LR-48">LR 48dB</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2. GAIN & UTILITIES PANEL (GAMBAR 2 DESIGN) -->
-                    <div class="panel-gain">
-                        <div class="screw top-left"></div>
-                        <div class="screw top-right"></div>
-                        <div class="screw bottom-left"></div>
-                        <div class="screw bottom-right"></div>
-
-                        <div class="gain-chassis">
-                            <!-- GAIN KNOB DIAL -->
-                            <div class="gain-section" id="kc-vol-${ch}">
-                                <svg class="dial-svg" viewBox="0 0 160 130">
-                                    <line x1="32" y1="105" x2="42" y2="98" class="dial-ticks" /><text x="22" y="112" class="dial-text">0</text>
-                                    <line x1="26" y1="85" x2="37" y2="81" class="dial-ticks" /><text x="14" y="90" class="dial-text">10</text>
-                                    <line x1="28" y1="62" x2="39" y2="63" class="dial-ticks" /><text x="14" y="64" class="dial-text">20</text>
-                                    <line x1="38" y1="42" x2="47" y2="48" class="dial-ticks" /><text x="26" y="40" class="dial-text">30</text>
-                                    <line x1="56" y1="26" x2="62" y2="36" class="dial-ticks" /><text x="48" y="20" class="dial-text">40</text>
-                                    <line x1="80" y1="20" x2="80" y2="31" class="dial-ticks" /><text x="80" y="12" class="dial-text">50</text>
-                                    <line x1="104" y1="26" x2="98" y2="36" class="dial-ticks" /><text x="112" y="20" class="dial-text">60</text>
-                                    <line x1="122" y1="42" x2="113" y2="48" class="dial-ticks" /><text x="134" y="40" class="dial-text">70</text>
-                                    <line x1="132" y1="62" x2="121" y2="63" class="dial-ticks" /><text x="146" y="64" class="dial-text">80</text>
-                                    <line x1="134" y1="85" x2="123" y2="81" class="dial-ticks" /><text x="146" y="90" class="dial-text">90</text>
-                                    <line x1="128" y1="105" x2="118" y2="98" class="dial-ticks" /><text x="140" y="112" class="dial-text">100</text>
-                                </svg>
-
-                                <div class="gain-pointer-knob">
-                                    <div class="pointer-lever" id="kb-vol-${ch}"></div>
-                                </div>
-                                <input type="range" id="vol-ch${ch}" min="0" max="1" step="0.01" value="1.0" class="knob-input">
-
-                                <span class="gain-label">GAIN</span>
-                                <span id="vol-lbl-${ch}" class="text-[10px] font-mono font-bold text-slate-800 mt-1">0.0 dB</span>
-                            </div>
-
-                            <div class="panel-divider-line"></div>
-
-                            <!-- PHASE & MUTE UTILITIES -->
-                            <div class="utility-section">
-                                <div class="phase-group">
-                                    <span class="sub-text">INV</span>
-                                    <div class="toggle-switch" id="toggle-switch-phase-${ch}" onclick="togglePhase(${ch})">
-                                        <div class="toggle-handle"></div>
-                                    </div>
-                                    <span class="main-text">PHASE</span>
-                                    <span class="text-[9px] font-mono font-extrabold text-slate-700" id="phase-lbl-${ch}">NORM</span>
-                                </div>
-
-                                <div class="mute-group">
-                                    <div class="led-indicator" id="led-mute-${ch}"></div>
-                                    <button class="btn-mute" onclick="toggleMute(${ch})">MUTE</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 3. CYAN RACK UNIT: DVC DSP & SHELF FILTER -->
-                    <div class="panel-cyan rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 relative">
-                        <div class="screw top-left"></div><div class="screw top-right"></div>
-                        <div class="pl-4 border-r border-cyan-700 pr-3">
-                            <span class="text-[9px] font-black tracking-widest text-cyan-200 uppercase block font-mono">DVC DSP ENGINE</span>
-                            <span class="text-xs font-black text-white">${isCh1 ? 'SUB LOW SHELF' : 'MID HIGH SHELF'}</span>
-                        </div>
-
-                        <div class="flex items-center gap-4 flex-wrap">
-                            <!-- SHELF FREQ KNOB -->
-                            <div class="control-item" id="kc-shelf-freq-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Frequency</span>
-                                <div class="xover-knob" id="kb-shelf-freq-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="shelf-freq-${ch}" min="${isCh1 ? 30 : 1000}" max="${isCh1 ? 150 : 8000}" step="${isCh1 ? 1 : 50}" value="${isCh1 ? 60 : 4000}" class="knob-input">
-                                <span id="shelf-freq-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-16 text-center">60 Hz</span>
-                            </div>
-
-                            <!-- SHELF Q KNOB -->
-                            <div class="control-item" id="kc-shelf-q-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Q Factor</span>
-                                <div class="xover-knob" id="kb-shelf-q-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="shelf-q-${ch}" min="0.1" max="2.0" step="0.05" value="0.7" class="knob-input">
-                                <span id="shelf-q-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-12 text-center">0.70</span>
-                            </div>
-
-                            <!-- SHELF GAIN KNOB -->
-                            <div class="control-item" id="kc-shelf-gain-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Gain Boost</span>
-                                <div class="xover-knob" id="kb-shelf-gain-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="shelf-gain-${ch}" min="-12" max="12" step="0.5" value="0" class="knob-input">
-                                <span id="shelf-gain-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-16 text-center">0.0 dB</span>
-                            </div>
-                        </div>
-
-                        <div class="rack-lcd p-1.5 rounded text-[9px] font-mono text-center border border-cyan-500/40 min-w-[110px]">
-                            <span>STATUS: DVC OK</span><br>
-                            <span class="text-[8px] text-cyan-300">DVC: <span id="dvc-lbl-safe-${ch}">Safe</span></span>
-                        </div>
-                    </div>
-
-                    <!-- 4. RED RACK UNIT: DYNAMICS (COMP / LIMITER / DELAY) -->
-                    <div class="panel-red rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 relative">
-                        <div class="screw top-left"></div><div class="screw top-right"></div>
-                        <div class="pl-4 border-r border-red-900 pr-3">
-                            <span class="text-[9px] font-black tracking-widest text-red-200 uppercase block font-mono">DYNAMICS</span>
-                            <span class="text-xs font-black text-white">COMP / LIMITER / DELAY</span>
-                        </div>
-
-                        <div class="flex items-center gap-3 flex-wrap">
-                            <div class="control-item" id="kc-comp-t-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Thresh</span>
-                                <div class="xover-knob" id="kb-comp-t-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="comp-t-${ch}" min="-60" max="0" value="0" class="knob-input">
-                                <span id="comp-t-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">0 dB</span>
-                            </div>
-
-                            <div class="control-item" id="kc-comp-r-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Ratio</span>
-                                <div class="xover-knob" id="kb-comp-r-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="comp-r-${ch}" min="1" max="20" step="0.5" value="1" class="knob-input">
-                                <span id="comp-r-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">1.0:1</span>
-                            </div>
-
-                            <div class="control-item" id="kc-comp-a-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Attack</span>
-                                <div class="xover-knob" id="kb-comp-a-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="comp-a-${ch}" min="1" max="100" value="30" class="knob-input">
-                                <span id="comp-a-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">30 ms</span>
-                            </div>
-
-                            <div class="control-item" id="kc-comp-v-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Release</span>
-                                <div class="xover-knob" id="kb-comp-v-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="comp-v-${ch}" min="50" max="1000" step="10" value="200" class="knob-input">
-                                <span id="comp-v-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">200 ms</span>
-                            </div>
-
-                            <div class="control-item border-l border-red-800 pl-2" id="kc-limit-t-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-amber-200 mb-1">Peak Limit</span>
-                                <div class="xover-knob" id="kb-limit-t-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="limit-t-${ch}" min="-20" max="0" step="0.5" value="0" class="knob-input">
-                                <span id="limit-t-lbl-${ch}" class="text-[9px] font-mono text-amber-200 mt-1">0.0 dB</span>
-                            </div>
-
-                            <div class="control-item border-l border-red-800 pl-2" id="kc-delay-${ch}">
-                                <span class="text-[8px] font-bold uppercase text-yellow-300 mb-1">Delay</span>
-                                <div class="xover-knob" id="kb-delay-${ch}"><div class="pointer-line"></div></div>
-                                <input type="range" id="delay-${ch}" min="0" max="50" step="0.1" value="0" class="knob-input">
-                                <span id="delay-lbl-${ch}" class="text-[9px] font-mono text-yellow-300 mt-1">0.0 ms</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 5. 15-BAND GRAPHIC EQUALIZER -->
-                    <div class="eq-console-panel">
-                        <div class="flex justify-between items-center border-b border-slate-500/60 pb-1.5 mb-2">
-                            <span class="text-[10px] font-black text-slate-900 tracking-wider uppercase font-mono">15-BAND CONSOLE GRAPHIC EQUALIZER CH${ch}</span>
-                            <div class="flex gap-2">
-                                <button id="eq-bypass-${ch}" onclick="toggleEQBypass(${ch})" class="text-[9px] bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.5 rounded font-bold transition shadow">BYPASS OFF</button>
-                                <button onclick="resetEQ(${ch})" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-100 px-2 py-0.5 rounded border border-slate-600 font-bold transition shadow">RESET</button>
-                            </div>
-                        </div>
-
-                        <div class="eq-grid-container">
-                            <div class="eq-grid-lines">
-                                <div class="eq-grid-line"></div><div class="eq-grid-line"></div>
-                                <div class="eq-grid-line zero-line"></div>
-                                <div class="eq-grid-line"></div><div class="eq-grid-line"></div>
-                            </div>
-
-                            <div class="flex items-center justify-between gap-1 overflow-x-auto eq-scroll">
-                                ${freqsList.map((f, idx) => `
-                                    <div class="eq-slider-column">
-                                        <span id="eq-lbl-${ch}-${idx}" class="eq-val-display">0.0</span>
-                                        <div class="eq-track-wrapper">
-                                            <div class="eq-black-slot"></div>
-                                            <input type="range" id="eq-${ch}-${idx}" min="-12" max="12" step="0.1" value="0" oninput="updateHardwareDSP()" class="eq-v-slider">
-                                        </div>
-                                        <span class="eq-freq-label">${freqsDisplay[idx]}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `);
-        }
-
-        renderRackChannel(1, "Low / Subwoofer Processor Unit", "cyan");
-        renderRackChannel(2, "High / Mid-Hi Processor Unit", "pink");
-      </script>
+      <!-- PROCESSOR CHANNELS CONTAINER -->
+      <div id="processor-channels" class="space-y-4"></div>
 
       <!-- FOOTER -->
       <footer class="flex flex-col items-center justify-center text-center text-slate-600 text-[10px] font-mono pt-4 border-t border-slate-900 pb-4">
@@ -932,6 +632,295 @@
 
   <!-- WEB AUDIO ENGINE & ROTARY LOGIC -->
   <script>
+      const freqsDisplay = ["25", "40", "63", "100", "160", "250", "400", "630", "1k", "1k6", "2k5", "4k", "6k3", "10k", "16k"];
+      const freqsList = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
+
+      function getRackChannelHTML(ch, chTitle, themeColor) {
+          const isCh1 = ch === 1;
+          const accentColor = isCh1 ? 'cyan' : 'pink';
+
+          return `
+              <div class="space-y-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 relative">
+                  <!-- CHANNEL HEADER & ROUTING -->
+                  <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-slate-800 pb-3">
+                      <div class="flex items-center gap-3">
+                          <div class="w-9 h-9 rounded-lg bg-slate-900 border border-${accentColor}-500/50 flex items-center justify-center text-${accentColor}-400 font-bold font-mono text-base shadow-inner">0${ch}</div>
+                          <div>
+                              <h3 class="text-sm font-black text-white tracking-tight uppercase">${chTitle}</h3>
+                              <div class="flex items-center gap-2 mt-1">
+                                  <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-900 p-1 rounded border border-slate-800">
+                                      <span class="text-slate-500 font-bold px-1">IN:</span>
+                                      <select id="route-ch${ch}" class="hidden" onchange="updateHardwareDSP()">
+                                          <option value="LEFT">LEFT</option><option value="RIGHT">RIGHT</option><option value="MONO">MONO</option><option value="MUTE">MUTE</option>
+                                      </select>
+                                      <button type="button" id="rt-${ch}-LEFT" onclick="setChannelRoute(${ch}, 'LEFT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN A</button>
+                                      <button type="button" id="rt-${ch}-RIGHT" onclick="setChannelRoute(${ch}, 'RIGHT')" class="px-1.5 py-0.5 rounded font-semibold transition">IN B</button>
+                                      <button type="button" id="rt-${ch}-MONO" onclick="setChannelRoute(${ch}, 'MONO')" class="px-1.5 py-0.5 rounded font-semibold transition">SUM</button>
+                                      <button type="button" id="rt-${ch}-MUTE" onclick="setChannelRoute(${ch}, 'MUTE')" class="px-1.5 py-0.5 rounded font-semibold transition">MUTE</button>
+                                  </div>
+                                  <div class="flex items-center gap-1 font-mono text-[9px] bg-slate-900 p-1 rounded border border-slate-800">
+                                      <span class="text-slate-500 font-bold px-1">OUT:</span>
+                                      <button type="button" id="out-${ch}-L" onclick="setOutRoute(${ch}, 'L')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT L</button>
+                                      <button type="button" id="out-${ch}-R" onclick="setOutRoute(${ch}, 'R')" class="px-1.5 py-0.5 rounded font-semibold transition">OUT R</button>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <!-- VU METERS & LIMIT LED -->
+                      <div class="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800 w-full lg:w-72">
+                          <span id="lim-led-${ch}" class="px-2 py-3 rounded text-[9px] font-black bg-slate-950 text-slate-600 border border-slate-800 text-center tracking-tighter">LIM</span>
+                          <div class="flex flex-col gap-2 flex-1">
+                              <div class="flex items-center gap-2">
+                                  <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">SIG</span>
+                                  <div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 relative">
+                                      <div id="vu-sig-bar-${ch}" class="h-full w-0 transition-all duration-75" style="background: linear-gradient(to right, #10b981 65%, #f59e0b 85%, #ef4444 100%);"></div>
+                                  </div>
+                                  <span id="db-sig-${ch}" class="text-slate-400 font-mono text-[9px] w-10 text-right">-∞ dB</span>
+                              </div>
+                              <div class="flex items-center gap-2">
+                                  <span class="text-slate-500 text-[8px] font-bold w-5 font-mono">G.R</span>
+                                  <div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 relative">
+                                      <div id="vu-gr-bar-${ch}" class="h-full w-0 transition-all duration-75 bg-amber-500"></div>
+                                  </div>
+                                  <span id="db-gr-${ch}" class="text-amber-500 font-mono text-[9px] w-10 text-right">0.0 dB</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- 1. PRE / XOVER PANEL -->
+                  <div class="panel-xover">
+                      <div class="screw top-left"></div>
+                      <div class="screw top-right"></div>
+
+                      <div class="xover-header">
+                          <div class="xover-title-group">
+                              <span class="brand">AUDIO LOGIC</span>
+                              <div class="divider"></div>
+                              <span class="main-title">PRE / XOVER CH${ch}</span>
+                          </div>
+                      </div>
+
+                      <div class="xover-controls">
+                          <div class="control-item" id="kc-hpf-${ch}">
+                              <span class="control-label">HPF FREQ</span>
+                              <div class="xover-knob" id="kb-hpf-${ch}">
+                                  <div class="pointer-line"></div>
+                              </div>
+                              <input type="range" id="hpf-${ch}" min="${isCh1 ? 20 : 100}" max="${isCh1 ? 200 : 1000}" step="1" value="${isCh1 ? 20 : 100}" class="knob-input">
+                              <span class="control-value" id="hpf-lbl-${ch}">20 Hz</span>
+                          </div>
+
+                          <div class="control-item">
+                              <span class="control-label">HPF SLOPE</span>
+                              <select id="hpf-slope-${ch}" onchange="updateHardwareDSP()" class="slope-select">
+                                  <option value="BW-12">BW 12dB</option>
+                                  <option value="BW-24">BW 24dB</option>
+                                  <option value="LR-24" selected>LR 24dB</option>
+                                  <option value="LR-48">LR 48dB</option>
+                              </select>
+                          </div>
+
+                          <div class="control-item" id="kc-lpf-${ch}">
+                              <span class="control-label">LPF FREQ</span>
+                              <div class="xover-knob" id="kb-lpf-${ch}">
+                                  <div class="pointer-line"></div>
+                              </div>
+                              <input type="range" id="lpf-${ch}" min="${isCh1 ? 100 : 2000}" max="${isCh1 ? 500 : 16000}" step="1" value="${isCh1 ? 500 : 16000}" class="knob-input">
+                              <span class="control-value" id="lpf-lbl-${ch}">500 Hz</span>
+                          </div>
+
+                          <div class="control-item">
+                              <span class="control-label">LPF SLOPE</span>
+                              <select id="lpf-slope-${ch}" onchange="updateHardwareDSP()" class="slope-select">
+                                  <option value="BW-12">BW 12dB</option>
+                                  <option value="BW-24">BW 24dB</option>
+                                  <option value="LR-24" selected>LR 24dB</option>
+                                  <option value="LR-48">LR 48dB</option>
+                              </select>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- 2. GAIN & UTILITIES PANEL -->
+                  <div class="panel-gain">
+                      <div class="screw top-left"></div>
+                      <div class="screw top-right"></div>
+                      <div class="screw bottom-left"></div>
+                      <div class="screw bottom-right"></div>
+
+                      <div class="gain-chassis">
+                          <div class="gain-section" id="kc-vol-${ch}">
+                              <svg class="dial-svg" viewBox="0 0 160 130">
+                                  <line x1="32" y1="105" x2="42" y2="98" class="dial-ticks" /><text x="22" y="112" class="dial-text">0</text>
+                                  <line x1="26" y1="85" x2="37" y2="81" class="dial-ticks" /><text x="14" y="90" class="dial-text">10</text>
+                                  <line x1="28" y1="62" x2="39" y2="63" class="dial-ticks" /><text x="14" y="64" class="dial-text">20</text>
+                                  <line x1="38" y1="42" x2="47" y2="48" class="dial-ticks" /><text x="26" y="40" class="dial-text">30</text>
+                                  <line x1="56" y1="26" x2="62" y2="36" class="dial-ticks" /><text x="48" y="20" class="dial-text">40</text>
+                                  <line x1="80" y1="20" x2="80" y2="31" class="dial-ticks" /><text x="80" y="12" class="dial-text">50</text>
+                                  <line x1="104" y1="26" x2="98" y2="36" class="dial-ticks" /><text x="112" y="20" class="dial-text">60</text>
+                                  <line x1="122" y1="42" x2="113" y2="48" class="dial-ticks" /><text x="134" y="40" class="dial-text">70</text>
+                                  <line x1="132" y1="62" x2="121" y2="63" class="dial-ticks" /><text x="146" y="64" class="dial-text">80</text>
+                                  <line x1="134" y1="85" x2="123" y2="81" class="dial-ticks" /><text x="146" y="90" class="dial-text">90</text>
+                                  <line x1="128" y1="105" x2="118" y2="98" class="dial-ticks" /><text x="140" y="112" class="dial-text">100</text>
+                              </svg>
+
+                              <div class="gain-pointer-knob">
+                                  <div class="pointer-lever" id="kb-vol-${ch}"></div>
+                              </div>
+                              <input type="range" id="vol-ch${ch}" min="0" max="1" step="0.01" value="1.0" class="knob-input">
+
+                              <span class="gain-label">GAIN</span>
+                              <span id="vol-lbl-${ch}" class="text-[10px] font-mono font-bold text-slate-800 mt-1">0.0 dB</span>
+                          </div>
+
+                          <div class="panel-divider-line"></div>
+
+                          <div class="utility-section">
+                              <div class="phase-group">
+                                  <span class="sub-text">INV</span>
+                                  <div class="toggle-switch" id="toggle-switch-phase-${ch}" onclick="togglePhase(${ch})">
+                                      <div class="toggle-handle"></div>
+                                  </div>
+                                  <span class="main-text">PHASE</span>
+                                  <span class="text-[9px] font-mono font-extrabold text-slate-700" id="phase-lbl-${ch}">NORM</span>
+                              </div>
+
+                              <div class="mute-group">
+                                  <div class="led-indicator" id="led-mute-${ch}"></div>
+                                  <button class="btn-mute" onclick="toggleMute(${ch})">MUTE</button>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- 3. CYAN RACK UNIT: DVC DSP & SHELF FILTER -->
+                  <div class="panel-cyan rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 relative">
+                      <div class="screw top-left"></div><div class="screw top-right"></div>
+                      <div class="pl-4 border-r border-cyan-700 pr-3">
+                          <span class="text-[9px] font-black tracking-widest text-cyan-200 uppercase block font-mono">DVC DSP ENGINE</span>
+                          <span class="text-xs font-black text-white">${isCh1 ? 'SUB LOW SHELF' : 'MID HIGH SHELF'}</span>
+                      </div>
+
+                      <div class="flex items-center gap-4 flex-wrap">
+                          <div class="control-item" id="kc-shelf-freq-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Frequency</span>
+                              <div class="xover-knob" id="kb-shelf-freq-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="shelf-freq-${ch}" min="${isCh1 ? 30 : 1000}" max="${isCh1 ? 150 : 8000}" step="${isCh1 ? 1 : 50}" value="${isCh1 ? 60 : 4000}" class="knob-input">
+                              <span id="shelf-freq-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-16 text-center">60 Hz</span>
+                          </div>
+
+                          <div class="control-item" id="kc-shelf-q-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Q Factor</span>
+                              <div class="xover-knob" id="kb-shelf-q-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="shelf-q-${ch}" min="0.1" max="2.0" step="0.05" value="0.7" class="knob-input">
+                              <span id="shelf-q-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-12 text-center">0.70</span>
+                          </div>
+
+                          <div class="control-item" id="kc-shelf-gain-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-cyan-100 mb-1">Gain Boost</span>
+                              <div class="xover-knob" id="kb-shelf-gain-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="shelf-gain-${ch}" min="-12" max="12" step="0.5" value="0" class="knob-input">
+                              <span id="shelf-gain-lbl-${ch}" class="text-[9px] font-mono font-bold text-cyan-200 mt-1 w-16 text-center">0.0 dB</span>
+                          </div>
+                      </div>
+
+                      <div class="rack-lcd p-1.5 rounded text-[9px] font-mono text-center border border-cyan-500/40 min-w-[110px]">
+                          <span>STATUS: DVC OK</span><br>
+                          <span class="text-[8px] text-cyan-300">DVC: <span id="dvc-lbl-safe-${ch}">Safe</span></span>
+                      </div>
+                  </div>
+
+                  <!-- 4. RED RACK UNIT: DYNAMICS -->
+                  <div class="panel-red rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 relative">
+                      <div class="screw top-left"></div><div class="screw top-right"></div>
+                      <div class="pl-4 border-r border-red-900 pr-3">
+                          <span class="text-[9px] font-black tracking-widest text-red-200 uppercase block font-mono">DYNAMICS</span>
+                          <span class="text-xs font-black text-white">COMP / LIMITER / DELAY</span>
+                      </div>
+
+                      <div class="flex items-center gap-3 flex-wrap">
+                          <div class="control-item" id="kc-comp-t-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Thresh</span>
+                              <div class="xover-knob" id="kb-comp-t-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="comp-t-${ch}" min="-60" max="0" value="0" class="knob-input">
+                              <span id="comp-t-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">0 dB</span>
+                          </div>
+
+                          <div class="control-item" id="kc-comp-r-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Ratio</span>
+                              <div class="xover-knob" id="kb-comp-r-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="comp-r-${ch}" min="1" max="20" step="0.5" value="1" class="knob-input">
+                              <span id="comp-r-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">1.0:1</span>
+                          </div>
+
+                          <div class="control-item" id="kc-comp-a-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Attack</span>
+                              <div class="xover-knob" id="kb-comp-a-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="comp-a-${ch}" min="1" max="100" value="30" class="knob-input">
+                              <span id="comp-a-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">30 ms</span>
+                          </div>
+
+                          <div class="control-item" id="kc-comp-v-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-red-100 mb-1">Release</span>
+                              <div class="xover-knob" id="kb-comp-v-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="comp-v-${ch}" min="50" max="1000" step="10" value="200" class="knob-input">
+                              <span id="comp-v-lbl-${ch}" class="text-[9px] font-mono text-red-100 mt-1">200 ms</span>
+                          </div>
+
+                          <div class="control-item border-l border-red-800 pl-2" id="kc-limit-t-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-amber-200 mb-1">Peak Limit</span>
+                              <div class="xover-knob" id="kb-limit-t-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="limit-t-${ch}" min="-20" max="0" step="0.5" value="0" class="knob-input">
+                              <span id="limit-t-lbl-${ch}" class="text-[9px] font-mono text-amber-200 mt-1">0.0 dB</span>
+                          </div>
+
+                          <div class="control-item border-l border-red-800 pl-2" id="kc-delay-${ch}">
+                              <span class="text-[8px] font-bold uppercase text-yellow-300 mb-1">Delay</span>
+                              <div class="xover-knob" id="kb-delay-${ch}"><div class="pointer-line"></div></div>
+                              <input type="range" id="delay-${ch}" min="0" max="50" step="0.1" value="0" class="knob-input">
+                              <span id="delay-lbl-${ch}" class="text-[9px] font-mono text-yellow-300 mt-1">0.0 ms</span>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- 5. 15-BAND GRAPHIC EQUALIZER -->
+                  <div class="eq-console-panel">
+                      <div class="flex justify-between items-center border-b border-slate-500/60 pb-1.5 mb-2">
+                          <span class="text-[10px] font-black text-slate-900 tracking-wider uppercase font-mono">15-BAND CONSOLE GRAPHIC EQUALIZER CH${ch}</span>
+                          <div class="flex gap-2">
+                              <button id="eq-bypass-${ch}" onclick="toggleEQBypass(${ch})" class="text-[9px] bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.5 rounded font-bold transition shadow">BYPASS OFF</button>
+                              <button onclick="resetEQ(${ch})" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-100 px-2 py-0.5 rounded border border-slate-600 font-bold transition shadow">RESET</button>
+                          </div>
+                      </div>
+
+                      <div class="eq-grid-container">
+                          <div class="eq-grid-lines">
+                              <div class="eq-grid-line"></div><div class="eq-grid-line"></div>
+                              <div class="eq-grid-line zero-line"></div>
+                              <div class="eq-grid-line"></div><div class="eq-grid-line"></div>
+                          </div>
+
+                          <div class="flex items-center justify-between gap-1 overflow-x-auto eq-scroll">
+                              ${freqsList.map((f, idx) => `
+                                  <div class="eq-slider-column">
+                                      <span id="eq-lbl-${ch}-${idx}" class="eq-val-display">0.0</span>
+                                      <div class="eq-track-wrapper">
+                                          <div class="eq-black-slot"></div>
+                                          <input type="range" id="eq-${ch}-${idx}" min="-12" max="12" step="0.1" value="0" oninput="updateHardwareDSP()" class="eq-v-slider">
+                                      </div>
+                                      <span class="eq-freq-label">${freqsDisplay[idx]}</span>
+                                  </div>
+                              `).join('')}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          `;
+      }
+
+      // CHART.JS INIT
       const chartFreqs = ['20Hz', '50Hz', '100Hz', '200Hz', '500Hz', '1kHz', '2kHz', '5kHz', '10kHz', '16kHz'];
       const eqFrequencies = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
 
@@ -1101,10 +1090,7 @@
           }
       });
 
-      // ==========================================
-      // JEMBATAN / BRIDGE DENGAN ANDROID
-      // ==========================================
-
+      /* ANDROID BRIDGE */
       function sendUrlToAndroid() {
           const url = document.getElementById('ytUrlInput').value;
           if (!url) return alert('Masukkan link YouTube terlebih dahulu!');
@@ -1117,46 +1103,23 @@
           }
       }
 
-      /**
-       * CALLBACK 1: Dipanggil oleh MainActivity Android jika ekstraksi BERHASIL
-       * Contoh pemanggilan dari Android: 
-       * webView.evaluateJavascript("window.onYouTubeAudioReady('" + streamUrl + "')", null);
-       */
       window.onYouTubeAudioReady = function(streamUrl) {
           try {
-              // 1. Inisialisasi Audio Engine DSP jika belum berjalan
               initAudioEngine();
-
-              // 2. Set source audio dari hasil ekstrak
               audioEl.src = streamUrl;
-
-              // 3. Resume AudioContext Web API jika suspended
-              if (audioCtx && audioCtx.state === 'suspended') {
-                  audioCtx.resume();
-              }
-
-              // 4. Putar Audio
+              if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
               audioEl.play().then(() => {
                   playPauseBtn.innerText = "PAUSE";
                   playPauseBtn.className = "bg-slate-100 hover:bg-white text-black text-[10px] font-bold px-3 py-1 rounded transition w-16 text-center";
-              }).catch(err => {
-                  console.error("Autoplay error:", err);
-              });
-
+              }).catch(err => console.error("Autoplay error:", err));
           } catch (e) {
               console.error("Error setting YouTube audio source:", e);
           } finally {
-              // Reset teks tombol
               const btn = document.getElementById('extractYtBtn');
               if (btn) btn.innerText = "EXTRACT";
           }
       };
 
-      /**
-       * CALLBACK 2: Dipanggil oleh MainActivity Android jika ekstraksi GAGAL
-       * Contoh pemanggilan dari Android: 
-       * webView.evaluateJavascript("window.onYouTubeAudioFailed('" + errorMessage + "')", null);
-       */
       window.onYouTubeAudioFailed = function(errorMsg) {
           alert("Gagal mengesktrak audio YouTube: " + (errorMsg || "Terjadi kesalahan server/network."));
           const btn = document.getElementById('extractYtBtn');
@@ -1638,6 +1601,14 @@
       }
 
       window.addEventListener('DOMContentLoaded', () => {
+          // Render channel UI
+          const container = document.getElementById('processor-channels');
+          if (container) {
+              container.innerHTML = 
+                  getRackChannelHTML(1, "Low / Subwoofer Processor Unit", "cyan") +
+                  getRackChannelHTML(2, "High / Mid-Hi Processor Unit", "pink");
+          }
+
           reloadPresetDropdown();
           
           // Binding drag knob handlers
